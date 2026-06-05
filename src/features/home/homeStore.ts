@@ -171,7 +171,7 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
     if (storedAddress.length > 0) {
       set({ addressTitle: storedAddress });
     } else {
-      set({ addressTitle: 'Dubai, UAE' }); // Default or "Select Location"
+      set({ addressTitle: 'Damascus, Syria' }); // Default or "Select Location"
     }
     // TODO: Implement real Geolocator logic here to update address
   },
@@ -232,13 +232,9 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
             totalPage: response.totalPage,
           }),
         });
-      } else if (get().categories.length === 0) {
-        loadDummyCategories(set, get);
       }
     } catch (e) {
-      if (get().categories.length === 0) {
-        loadDummyCategories(set, get);
-      } else {
+      if (get().categories.length > 0) {
         set({
           categoriesPage: createCategoriesPageEntity({
             data: page.data,
@@ -260,17 +256,11 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
     try {
       set({ isPopularVendorsLoading: true });
       const result = await repository.getPopularVendors();
-      if (result.success) {
-        if (Array.isArray(result.object)) {
-          set({ popularVendors: (result.object as VendorModel[]) });
-        }
-      } else if (get().popularVendors.length === 0) {
-        loadDummyVendors(set);
+      if (result.success && Array.isArray(result.object)) {
+        set({ popularVendors: (result.object as VendorModel[]) });
       }
     } catch (e) {
-      if (get().popularVendors.length === 0) {
-        loadDummyVendors(set);
-      }
+      // Leave list empty; the UI shows its empty/loading state.
     } finally {
       set({ isPopularVendorsLoading: false });
     }
@@ -279,22 +269,18 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
   getNearbyBranches: async () => {
     try {
       set({ isNearbyBranchesLoading: true });
-      // Mock Lat/Lng for now (Dubai)
-      const lat = 25.2048;
-      const lng = 55.2708;
-      const radius = 10.0;
+      // Default location: central Damascus (Syria). [[jawlaha-cash-on-delivery-only]]
+      const lat = 33.5138;
+      const lng = 36.2765;
+      const radius = 15.0;
 
       const result = await repository.getNearbyBranches(lat, lng, radius);
 
       if (result.success && Array.isArray(result.object)) {
         set({ nearbyBranches: (result.object as BranchModel[]) });
-      } else if (get().nearbyBranches.length === 0) {
-        loadDummyNearbyBranches(set);
       }
     } catch (e) {
-      if (get().nearbyBranches.length === 0) {
-        loadDummyNearbyBranches(set);
-      }
+      // Leave list empty; the UI shows its empty/loading state.
     } finally {
       set({ isNearbyBranchesLoading: false });
     }
@@ -322,17 +308,11 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
       // Using getActiveOffers for banners
       const result = await repository.getActiveOffers();
 
-      if (result.success) {
-        if (Array.isArray(result.object)) {
-          set({ banners: (result.object as OfferModel[]) });
-        }
-      } else if (get().banners.length === 0) {
-        loadDummyBanners(set);
+      if (result.success && Array.isArray(result.object)) {
+        set({ banners: (result.object as OfferModel[]) });
       }
     } catch (e) {
-      if (get().banners.length === 0) {
-        loadDummyBanners(set);
-      }
+      // Leave banners empty; the UI hides the banner when there are none.
     } finally {
       set({ isBannersLoading: false });
     }
@@ -347,54 +327,3 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
   },
 }));
 
-type SetState = (
-  partial: Partial<HomeStore> | ((state: HomeStore) => Partial<HomeStore>),
-) => void;
-type GetState = () => HomeStore;
-
-function loadDummyCategories(set: SetState, get: GetState) {
-  const categories: CategoryModel[] = [
-    { id: 1, name: 'Restaurants', description: 'Delicious food', imageUrl: 'https://via.placeholder.com/150' },
-    { id: 2, name: 'Cafes', description: 'Best coffee in town', imageUrl: 'https://via.placeholder.com/150' },
-    { id: 3, name: 'Retail', description: 'Shopping & Retail', imageUrl: 'https://via.placeholder.com/150' },
-    { id: 4, name: 'Services', description: 'Home Services', imageUrl: 'https://via.placeholder.com/150' },
-  ];
-  set({
-    categories,
-    categoriesPage: createCategoriesPageEntity({
-      data: categories,
-      itemCount: categories.length,
-      page: 2,
-      total: categories.length,
-      totalPage: 1,
-    }),
-  });
-}
-
-function loadDummyVendors(set: SetState) {
-  set({
-    popularVendors: [
-      { id: 1, name: 'Sample Vendor 1', description: 'Best products here', logoUrl: 'https://via.placeholder.com/150', subscriptionStatus: 'active' },
-      { id: 2, name: 'Sample Vendor 2', description: 'Great deals daily', logoUrl: 'https://via.placeholder.com/150', subscriptionStatus: 'active' },
-      { id: 3, name: 'Sample Vendor 3', description: 'Premium quality', logoUrl: 'https://via.placeholder.com/150', subscriptionStatus: 'active' },
-    ],
-  });
-}
-
-function loadDummyNearbyBranches(set: SetState) {
-  set({
-    nearbyBranches: [
-      { id: 1, name: 'Downtown Branch', address: 'Sheikh Zayed Rd', city: 'Dubai', latitude: 25.2048, longitude: 55.2708, isActive: true },
-      { id: 2, name: 'Marina Branch', address: 'Dubai Marina', city: 'Dubai', latitude: 25.0805, longitude: 55.1403, isActive: true },
-    ],
-  });
-}
-
-function loadDummyBanners(set: SetState) {
-  set({
-    banners: [
-      { id: 1, title: 'Summer Sale', description: 'Up to 50% Off Everything', discountValue: 50.0, isActive: true },
-      { id: 2, title: 'Weekend Special', description: 'Buy 1 Get 1 Free', discountValue: 100.0, isActive: true },
-    ],
-  });
-}

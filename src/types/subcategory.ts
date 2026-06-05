@@ -1,11 +1,12 @@
 // Ported from model/subcategory_model.dart
 
 export interface SubcategoryModel {
-  id?: number;
+  id?: string | number;
   name?: string;
   description?: string;
   imageUrl?: string;
-  categoryId?: number;
+  categoryId?: string | number;
+  branchId?: string | number;
 }
 
 export function parseSubcategoryModel(json: any): SubcategoryModel {
@@ -13,8 +14,10 @@ export function parseSubcategoryModel(json: any): SubcategoryModel {
     id: json?.id,
     name: json?.name,
     description: json?.description,
-    imageUrl: json?.image_url,
+    // Backend sends `image`; keep image_url as a fallback.
+    imageUrl: json?.image ?? json?.image_url,
     categoryId: json?.category_id,
+    branchId: json?.branch_id,
   };
 }
 

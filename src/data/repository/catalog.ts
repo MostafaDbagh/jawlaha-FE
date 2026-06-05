@@ -22,15 +22,21 @@ export async function getCategories({
 }: {
   paginateReqEntity: PaginateReqEntity;
 }): Promise<CustomResponse> {
+  // jawlahapp returns { data: { categories: [...], pagination: {...} } }, so map
+  // it into the { data, total, totalPage } shape the home/product stores expect.
   const queryMap = {
     page: `${paginateReqEntity.page}`,
-    per_page: `${paginateReqEntity.perPage}`,
+    limit: `${paginateReqEntity.perPage}`,
   };
-  return await apiClient.getPagination({
+  return await apiClient.getV2({
     subUrl: 'categories',
     query: queryMap,
     needToken: false,
-    fromJson: parseCategoryModel,
+    fromJson: (data: any) => ({
+      data: (data?.categories ?? []).map(parseCategoryModel),
+      total: data?.pagination?.totalItems,
+      totalPage: data?.pagination?.totalPages ?? 1,
+    }),
   });
 }
 

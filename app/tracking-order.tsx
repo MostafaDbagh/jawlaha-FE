@@ -1,76 +1,39 @@
 // Ported from lib/screens/cart/tracking_order_screen.dart (TrackingOrderScreen)
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   ScrollView,
   Pressable,
-  Image,
   StyleSheet,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { AppColors, w, h, r, sp } from '@/theme';
 import { t } from '@/i18n';
-import { BaseText } from '@/components';
-
-// NOTE: google_maps_flutter map -> simple RN placeholder per migration conventions.
-// const _initialCameraPosition = { target: { lat: 25.2048, lng: 55.2708 }, zoom: 13 }; // Dubai
-
-interface Step {
-  title: string;
-  subtitle: string;
-  isCompleted: boolean;
-  isActive: boolean;
-}
-
-const _steps: Step[] = [
-  { title: 'nova', subtitle: 'picked_up', isCompleted: true, isActive: false },
-  {
-    title: 'Burger shop',
-    subtitle: 'preparing',
-    isCompleted: true,
-    isActive: false,
-  },
-  {
-    title: 'Burger shop',
-    subtitle: 'ready_to_pick_up',
-    isCompleted: true,
-    isActive: false,
-  },
-  {
-    title: 'On its way',
-    subtitle: 'waiting_to_complete',
-    isCompleted: false,
-    isActive: true,
-  },
-  {
-    title: 'Delivered',
-    subtitle: 'waiting_to_complete',
-    isCompleted: false,
-    isActive: false,
-  },
-];
+import { BaseText, AppImage } from '@/components';
+import { formatPrice } from '@/lib/currency';
+import { showSnack } from '@/lib/snack';
+import { useNavArgs } from '@/store/navArgs';
+import {
+  useOrdersStore,
+  type TimelineStep as TimelineStepData,
+} from '@/features/orders/ordersStore';
 
 function TimelineStep({
   title,
   subtitle,
   isCompleted,
-  isActive,
   isLast,
 }: {
   title: string;
   subtitle: string;
   isCompleted: boolean;
-  isActive: boolean;
   isLast: boolean;
 }) {
-  const nodeColor = isCompleted
-    ? AppColors.primaryColor
-    : isActive
-      ? AppColors.primaryColor
-      : AppColors.lightGreyV2;
+  const nodeColor = isCompleted ? AppColors.primaryColor : AppColors.lightGreyV2;
   const lineColor = isCompleted ? AppColors.primaryColor : AppColors.lightGreyV2;
 
   return (
@@ -93,29 +56,52 @@ function TimelineStep({
       {/* Content */}
       <View style={{ flex: 1 }}>
         <BaseText
-          title={t(title)}
+          title={title}
           style={{
             fontSize: sp(16),
             fontWeight: '600',
-            color:
-              isActive || isCompleted
-                ? AppColors.primaryColor
-                : AppColors.textColorTheme,
+            color: isCompleted
+              ? AppColors.primaryColor
+              : AppColors.textColorTheme,
           }}
         />
-        <BaseText
-          title={t(subtitle)}
-          style={{ fontSize: sp(12), color: AppColors.textColor2 }}
-        />
+        {!!subtitle && (
+          <BaseText
+            title={subtitle}
+            style={{ fontSize: sp(12), color: AppColors.textColor2 }}
+          />
+        )}
         {!isLast && <View style={{ height: h(24) }} />}
       </View>
     </View>
   );
 }
 
+function formatTime(value?: string | null): string {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleString('en', { hour: 'numeric', minute: '2-digit' });
+}
+
 export default function TrackingOrderScreen() {
   const router = useRouter();
   const screenHeight = Dimensions.get('window').height;
+
+  const args = useNavArgs((s) => s.args);
+  const orderId = args?.orderId as string | undefined;
+
+  const order = useOrdersStore((s) => s.currentOrder);
+  const isLoading = useOrdersStore((s) => s.isLoading);
+
+  useEffect(() => {
+    if (orderId) useOrdersStore.getState().loadOrder(orderId);
+  }, [orderId]);
+
+  const timeline: TimelineStepData[] = order?.status_timeline ?? [];
+  const eta = order?.eta_minutes;
+  const driver = order?.driver ?? null;
+  const items = order?.items ?? [];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -155,96 +141,173 @@ export default function TrackingOrderScreen() {
 
         {/* Draggable Details Sheet (fixed-height fallback) */}
         <View style={[styles.sheet, { height: screenHeight * 0.6 }]}>
-          <ScrollView contentContainerStyle={{ padding: w(16) }}>
-            {/* Grabber */}
-            <View style={{ alignItems: 'center' }}>
-              <View
-                style={{
-                  width: w(40),
-                  height: h(4),
-                  borderRadius: r(2),
-                  backgroundColor: AppColors.lightGreyV2,
-                }}
-              />
+          {isLoading && !order ? (
+            <View style={styles.centerFill}>
+              <ActivityIndicator color={AppColors.primaryColor} />
             </View>
-            <View style={{ height: h(16) }} />
+          ) : (
+            <ScrollView contentContainerStyle={{ padding: w(16) }}>
+              {/* Grabber */}
+              <View style={{ alignItems: 'center' }}>
+                <View
+                  style={{
+                    width: w(40),
+                    height: h(4),
+                    borderRadius: r(2),
+                    backgroundColor: AppColors.lightGreyV2,
+                  }}
+                />
+              </View>
+              <View style={{ height: h(16) }} />
 
-            {/* Time Estimate */}
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-              }}
-            >
+              {/* Time Estimate */}
+              {eta != null && (
+                <>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <BaseText
+                      title={`${eta} ${t('mins_until_delivery')}`}
+                      style={{
+                        fontSize: sp(18),
+                        fontWeight: 'bold',
+                        color: AppColors.black,
+                      }}
+                    />
+                  </View>
+                  <View style={{ height: h(24) }} />
+                </>
+              )}
+
+              {/* Timeline */}
+              {timeline.map((step, index) => (
+                <TimelineStep
+                  key={index}
+                  title={step.label ?? step.status}
+                  subtitle={formatTime(step.at)}
+                  isCompleted={step.done}
+                  isLast={index === timeline.length - 1}
+                />
+              ))}
+
+              <View style={styles.divider} />
+              <View style={{ height: h(16) }} />
+
+              {/* Driver Card — only when a driver is assigned */}
+              {driver ? (
+                <View style={styles.driverCard}>
+                  <AppImage
+                    source={driver.avatar || ''}
+                    width={r(48)}
+                    height={r(48)}
+                    borderRadius={r(24)}
+                    style={styles.avatar}
+                  />
+                  <View style={{ width: w(12) }} />
+                  <View style={{ alignItems: 'flex-start' }}>
+                    <BaseText
+                      title={driver.name ?? ''}
+                      style={{
+                        fontWeight: 'bold',
+                        fontSize: sp(16),
+                        color: AppColors.black,
+                      }}
+                    />
+                    {!!driver.vehicle && (
+                      <>
+                        <View style={{ height: h(4) }} />
+                        <BaseText
+                          title={driver.vehicle}
+                          style={{ fontSize: sp(12), color: AppColors.textColor2 }}
+                        />
+                      </>
+                    )}
+                  </View>
+                  <View style={{ flex: 1 }} />
+                  <View style={{ alignItems: 'flex-end' }}>
+                    {!!driver.rating && (
+                      <View
+                        style={{ flexDirection: 'row', alignItems: 'center' }}
+                      >
+                        <Ionicons name="star" size={sp(16)} color="orange" />
+                        <BaseText
+                          title={driver.rating}
+                          style={{
+                            fontWeight: 'bold',
+                            fontSize: sp(14),
+                            color: AppColors.black,
+                          }}
+                        />
+                      </View>
+                    )}
+                    <View style={{ height: h(8) }} />
+                    <Pressable onPress={() => showSnack(t('calling_driver'), 'info')} style={styles.callButton}>
+                      <Ionicons
+                        name="call"
+                        size={sp(14)}
+                        color={AppColors.primaryColor}
+                      />
+                      <BaseText
+                        title={t('call_driver')}
+                        style={{
+                          color: AppColors.primaryColor,
+                          fontSize: sp(10),
+                          marginLeft: w(4),
+                        }}
+                      />
+                    </Pressable>
+                  </View>
+                </View>
+              ) : null}
+
+              <View style={{ height: h(24) }} />
               <BaseText
-                title={`18 ${t('mins_until_delivery')}`}
+                title={t('order_summary')}
                 style={{
-                  fontSize: sp(18),
+                  fontSize: sp(16),
                   fontWeight: 'bold',
                   color: AppColors.black,
                 }}
               />
-              <BaseText
-                title={`2:45 ${t('pm').toUpperCase()}`}
-                style={{ fontSize: sp(14), color: AppColors.textColor2 }}
-              />
-            </View>
-            <View style={{ height: h(24) }} />
+              <View style={{ height: h(12) }} />
 
-            {/* Timeline */}
-            {_steps.map((step, index) => (
-              <TimelineStep
-                key={index}
-                title={step.title}
-                subtitle={step.subtitle}
-                isCompleted={step.isCompleted}
-                isActive={step.isActive}
-                isLast={index === _steps.length - 1}
-              />
-            ))}
-
-            <View style={{ alignItems: 'center', paddingVertical: h(16) }}>
-              <BaseText
-                title={`${t('heading_to')} Spinneys (Stop 2 of 4)`}
-                style={{
-                  color: AppColors.primaryColor,
-                  fontSize: sp(14),
-                  fontWeight: '500',
-                }}
-              />
-            </View>
-
-            <View style={styles.divider} />
-            <View style={{ height: h(16) }} />
-
-            {/* Driver Card */}
-            <View style={styles.driverCard}>
-              <Image
-                source={{ uri: 'https://i.pravatar.cc/150?img=11' }}
-                style={styles.avatar}
-              />
-              <View style={{ width: w(12) }} />
-              <View style={{ alignItems: 'flex-start' }}>
-                <BaseText
-                  title="Ahmed"
+              {/* Summary Items */}
+              {items.map((item, idx) => (
+                <View
+                  key={item.product_id ?? idx}
                   style={{
-                    fontWeight: 'bold',
-                    fontSize: sp(16),
-                    color: AppColors.black,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: h(12),
                   }}
-                />
-                <View style={{ height: h(4) }} />
-                <BaseText
-                  title="Toyota Yaris • White"
-                  style={{ fontSize: sp(12), color: AppColors.textColor2 }}
-                />
-              </View>
-              <View style={{ flex: 1 }} />
-              <View style={{ alignItems: 'flex-end' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Ionicons name="star" size={sp(16)} color="orange" />
+                >
+                  <AppImage
+                    source={item.image || ''}
+                    width={w(50)}
+                    height={w(50)}
+                    borderRadius={r(8)}
+                    style={styles.summaryImage}
+                  />
+                  <View style={{ width: w(12) }} />
+                  <View style={{ flex: 1, alignItems: 'flex-start' }}>
+                    <BaseText
+                      title={order?.vendor_name ?? item.name}
+                      style={{
+                        fontWeight: 'bold',
+                        fontSize: sp(14),
+                        color: AppColors.black,
+                      }}
+                    />
+                    <BaseText
+                      title={`${item.qty} x ${item.name}`}
+                      style={{ fontSize: sp(12), color: AppColors.textColor2 }}
+                    />
+                  </View>
                   <BaseText
-                    title="4.8"
+                    title={formatPrice(item.unit_price * item.qty)}
                     style={{
                       fontWeight: 'bold',
                       fontSize: sp(14),
@@ -252,71 +315,10 @@ export default function TrackingOrderScreen() {
                     }}
                   />
                 </View>
-                <View style={{ height: h(8) }} />
-                <Pressable
-                  onPress={() => {}}
-                  style={styles.callButton}
-                >
-                  <Ionicons
-                    name="call"
-                    size={sp(14)}
-                    color={AppColors.primaryColor}
-                  />
-                  <BaseText
-                    title={t('call_driver')}
-                    style={{
-                      color: AppColors.primaryColor,
-                      fontSize: sp(10),
-                      marginLeft: w(4),
-                    }}
-                  />
-                </Pressable>
-              </View>
-            </View>
-
-            <View style={{ height: h(24) }} />
-            <BaseText
-              title={t('order_summary')}
-              style={{
-                fontSize: sp(16),
-                fontWeight: 'bold',
-                color: AppColors.black,
-              }}
-            />
-            <View style={{ height: h(12) }} />
-
-            {/* Summary Item */}
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Image
-                source={{ uri: 'https://via.placeholder.com/150' }}
-                style={styles.summaryImage}
-              />
-              <View style={{ width: w(12) }} />
-              <View style={{ flex: 1, alignItems: 'flex-start' }}>
-                <BaseText
-                  title="Fresh Market"
-                  style={{
-                    fontWeight: 'bold',
-                    fontSize: sp(14),
-                    color: AppColors.black,
-                  }}
-                />
-                <BaseText
-                  title="1 x Organic Avocado"
-                  style={{ fontSize: sp(12), color: AppColors.textColor2 }}
-                />
-              </View>
-              <BaseText
-                title={`32.00 ${t('aed')}`}
-                style={{
-                  fontWeight: 'bold',
-                  fontSize: sp(14),
-                  color: AppColors.black,
-                }}
-              />
-            </View>
-            <View style={{ height: h(30) }} />
-          </ScrollView>
+              ))}
+              <View style={{ height: h(30) }} />
+            </ScrollView>
+          )}
         </View>
       </View>
     </SafeAreaView>
@@ -336,6 +338,11 @@ const styles = StyleSheet.create({
   },
   markerWrap: {
     position: 'absolute',
+  },
+  centerFill: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   appBar: {
     flexDirection: 'row',
@@ -375,9 +382,6 @@ const styles = StyleSheet.create({
     borderRadius: r(12),
   },
   avatar: {
-    width: r(48),
-    height: r(48),
-    borderRadius: r(24),
     backgroundColor: AppColors.lightGreyV2,
   },
   callButton: {
@@ -390,9 +394,6 @@ const styles = StyleSheet.create({
     borderRadius: r(20),
   },
   summaryImage: {
-    width: w(50),
-    height: w(50),
-    borderRadius: r(8),
     backgroundColor: AppColors.lightGreyV2,
   },
 });

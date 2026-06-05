@@ -1,13 +1,17 @@
 // Ported from: lib/screens/cart/checkout_payment_screen.dart
+// Jawlah is Cash on Delivery only (Syria) — see [[jawlaha-cash-on-delivery-only]].
 import React, { useState } from 'react';
 import {
   View,
   ScrollView,
   Pressable,
+  Switch,
+  TextInput,
+  ActivityIndicator,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { AppColors, w, h, r, sp } from '@/theme';
 import { BaseText } from '@/components';
@@ -15,64 +19,29 @@ import { t } from '@/i18n';
 import { useI18n } from '@/i18n';
 import { useAuthStore } from '@/store/authStore';
 import { showSnack } from '@/lib/snack';
+import { formatPrice } from '@/lib/currency';
+import { useCartStore } from '@/features/cart/cartStore';
+import { useOrdersStore } from '@/features/orders/ordersStore';
+import { navArgs, useNavArgs } from '@/store/navArgs';
 
 export default function CheckoutPaymentScreen() {
   const router = useRouter();
   const { isRTL } = useI18n();
   const backIcon = isRTL ? 'arrow-forward' : 'arrow-back';
 
-  const [selectedMethod, setSelectedMethod] = useState<string>('visa'); // 'visa', 'cash'
+  const args = useNavArgs((s) => s.args);
+  const summary = useCartStore((s) => s.summary);
+  const isPlacing = useOrdersStore((s) => s.isLoading);
 
-  // ---- _buildPaymentMethodItem ----
-  const buildPaymentMethodItem = (opts: {
-    value: string;
-    title: string;
-    iconData?: React.ReactNode;
-    hasIcon?: boolean;
-    iconWidget?: React.ReactNode;
-  }) => {
-    const { value, title, iconData, hasIcon = false, iconWidget } = opts;
-    const isSelected = selectedMethod === value;
-    return (
-      <Pressable
-        onPress={() => setSelectedMethod(value)}
-        style={[
-          styles.methodItem,
-          {
-            borderColor: isSelected
-              ? AppColors.primaryColorTheme
-              : AppColors.lightGreyV2,
-            borderWidth: isSelected ? 1.5 : 1,
-          },
-        ]}
-      >
-        {hasIcon && iconWidget ? (
-          iconWidget
-        ) : iconData ? (
-          iconData
-        ) : null}
+  const [leaveAtDoor, setLeaveAtDoor] = useState(false);
+  const [dontRingBell, setDontRingBell] = useState(false);
+  const [note, setNote] = useState<string>(
+    (args?.delivery_note as string) ?? '',
+  );
 
-        <View style={{ width: w(12) }} />
-
-        <View style={{ flex: 1 }}>
-          <BaseText
-            title={title}
-            size={sp(14)}
-            color={isSelected ? AppColors.textColorTheme : AppColors.darkGray}
-            fontWeight={isSelected ? '600' : 'normal'}
-          />
-        </View>
-
-        {isSelected ? (
-          <View style={styles.checkCircle}>
-            <Ionicons name="checkmark" color={AppColors.white} size={sp(14)} />
-          </View>
-        ) : (
-          <View style={styles.emptyCircle} />
-        )}
-      </Pressable>
-    );
-  };
+  // No delivery fee data from the backend cart yet -> 0 until known.
+  const deliveryFee = 0;
+  const total = summary.subtotal + deliveryFee;
 
   // ---- _buildSummaryRow ----
   const buildSummaryRow = (label: string, value: string) => (
@@ -87,36 +56,41 @@ export default function CheckoutPaymentScreen() {
     </View>
   );
 
-  // ---- _buildSocialPayButton ----
-  const buildSocialPayButton = (opts: {
-    icon: React.ReactNode;
-    text: string;
-    onTap: () => void;
-    isGoogle?: boolean;
-  }) => {
-    const { icon, text, onTap, isGoogle = false } = opts;
-    return (
-      <Pressable onPress={onTap} style={styles.socialBtn}>
-        {isGoogle ? (
-          // Simple colored G logic or just icon
-          <BaseText
-            title="G"
-            size={sp(20)}
-            fontWeight="bold"
-            color={AppColors.blue}
-          /> // Placeholder
-        ) : (
-          icon
-        )}
-        <View style={{ width: w(8) }} />
-        <BaseText
-          title={text}
-          size={sp(16)}
-          color={AppColors.textColorTheme}
-          fontWeight="500"
-        />
-      </Pressable>
-    );
+  // ---- toggle row ----
+  const buildToggleRow = (
+    label: string,
+    value: boolean,
+    onChange: (v: boolean) => void,
+  ) => (
+    <View style={styles.toggleRow}>
+      <BaseText title={label} size={sp(14)} color={AppColors.textColorTheme} />
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        trackColor={{ true: AppColors.primaryColorTheme, false: AppColors.lightGreyV2 }}
+        thumbColor={AppColors.white}
+      />
+    </View>
+  );
+
+  const onConfirm = async () => {
+    // Only signed-in users can place an order.
+    if (!useAuthStore.getState().isLoggedIn) {
+      showSnack(t('login_required_to_order'), 'info');
+      router.push('/login');
+      return;
+    }
+    const order = await useOrdersStore.getState().createOrder({
+      delivery_address: (args?.delivery_address as string) ?? null,
+      delivery_note: note.trim() || null,
+      leave_at_door: leaveAtDoor,
+      dont_ring_bell: dontRingBell,
+    });
+    if (order) {
+      await useCartStore.getState().clear();
+      navArgs.set({ order });
+      router.replace('/checkout-success');
+    }
   };
 
   return (
@@ -158,53 +132,62 @@ export default function CheckoutPaymentScreen() {
         />
         <View style={{ height: h(12) }} />
 
-        {/* Visa Card Item */}
-        {buildPaymentMethodItem({
-          value: 'visa',
-          title: '•••• 4242',
-          hasIcon: true,
-          iconWidget: (
-            <View style={styles.visaBadge}>
-              <BaseText
-                title="VISA"
-                color={AppColors.white}
-                size={sp(8)}
-                fontWeight="bold"
-              />
-            </View>
-          ),
-        })}
-        <View style={{ height: h(12) }} />
-
-        {/* Cash on Delivery Item */}
-        {buildPaymentMethodItem({
-          value: 'cash',
-          title: t('cash_on_delivery'),
-          iconData: (
-            <MaterialIcons
-              name="attach-money"
-              size={sp(24)}
-              color={AppColors.darkGray}
-            />
-          ),
-        })}
-        <View style={{ height: h(12) }} />
-
-        {/* Add New Card */}
-        <Pressable
-          onPress={() => {
-            // Handle add card
-          }}
-          style={styles.addCard}
+        {/* Cash on Delivery — the only supported method (selected). */}
+        <View
+          style={[
+            styles.methodItem,
+            {
+              borderColor: AppColors.primaryColorTheme,
+              borderWidth: 1.5,
+            },
+          ]}
         >
-          <Ionicons name="add" size={sp(20)} color={AppColors.textColor2} />
-          <View style={{ width: w(12) }} />
-          <BaseText
-            title={t('add_new_card')}
-            size={sp(14)}
-            color={AppColors.textColorTheme}
+          <MaterialIcons
+            name="attach-money"
+            size={sp(24)}
+            color={AppColors.darkGray}
           />
-        </Pressable>
+          <View style={{ width: w(12) }} />
+          <View style={{ flex: 1 }}>
+            <BaseText
+              title={t('cash_on_delivery')}
+              size={sp(14)}
+              color={AppColors.textColorTheme}
+              fontWeight="600"
+            />
+          </View>
+          <View style={styles.checkCircle}>
+            <Ionicons name="checkmark" color={AppColors.white} size={sp(14)} />
+          </View>
+        </View>
+
+        <View style={{ height: h(24) }} />
+
+        {/* Delivery Preferences */}
+        {buildToggleRow(t('leave_at_door'), leaveAtDoor, setLeaveAtDoor)}
+        <View style={{ height: h(8) }} />
+        {buildToggleRow(t('dont_ring_bell'), dontRingBell, setDontRingBell)}
+
+        <View style={{ height: h(16) }} />
+
+        {/* Delivery note */}
+        <BaseText
+          title={t('delivery_instructions_label')}
+          size={sp(14)}
+          color={AppColors.textColor2}
+        />
+        <View style={{ height: h(8) }} />
+        <TextInput
+          value={note}
+          onChangeText={setNote}
+          multiline
+          numberOfLines={3}
+          maxLength={140}
+          placeholder={t('leave_at_door_placeholder')}
+          placeholderTextColor={AppColors.textColor2}
+          style={styles.noteInput}
+          textAlignVertical="top"
+        />
 
         <View style={{ height: h(24) }} />
 
@@ -217,16 +200,11 @@ export default function CheckoutPaymentScreen() {
         <View style={{ height: h(12) }} />
 
         {/* Summary Rows */}
-        {buildSummaryRow(t('subtotal'), 'AED 103.00')}
+        {buildSummaryRow(t('subtotal'), formatPrice(summary.subtotal))}
         <View style={{ height: h(8) }} />
-        {buildSummaryRow(t('delivery_fee'), 'AED 10.00')}
+        {buildSummaryRow(t('delivery_fee'), formatPrice(deliveryFee))}
         <View style={{ height: h(8) }} />
-        {buildSummaryRow(`${t('taxes')} (${t('vat')})`, 'AED 5.15')}
-        <View style={{ height: h(8) }} />
-        {buildSummaryRow(t('driver_tip_label'), 'AED 10')}
-        {/* Using driver_tip_label */}
-        <View style={{ height: h(8) }} />
-        {buildSummaryRow(t('discount'), '-AED 8.50')}
+        {buildSummaryRow(t('discount'), formatPrice(0))}
 
         <View style={{ height: h(16) }} />
         <View style={styles.divider} />
@@ -240,7 +218,7 @@ export default function CheckoutPaymentScreen() {
             color={AppColors.textColorTheme}
           />
           <BaseText
-            title="AED 119.65"
+            title={formatPrice(total)}
             size={sp(16)}
             fontWeight="bold"
             color={AppColors.textColorTheme}
@@ -251,63 +229,22 @@ export default function CheckoutPaymentScreen() {
 
         {/* Confirm Order Button */}
         <Pressable
-          onPress={() => {
-            // Only signed-in users can place an order.
-            if (!useAuthStore.getState().isLoggedIn) {
-              showSnack(t('login_required_to_order'), 'info');
-              router.push('/login');
-              return;
-            }
-            router.push('/checkout-success');
-          }}
-          style={styles.confirmBtn}
+          onPress={onConfirm}
+          disabled={isPlacing}
+          style={[styles.confirmBtn, isPlacing && { opacity: 0.7 }]}
         >
-          <BaseText
-            title={t('confirm_order_btn')}
-            color={AppColors.white}
-            size={sp(16)}
-            fontWeight="bold"
-          />
-        </Pressable>
-        {/* Assuming primaryColor is dark teal as per image */}
-
-        <View style={{ height: h(24) }} />
-
-        {/* Or pay using */}
-        <View style={styles.orRow}>
-          <View style={[styles.flexDivider, { flex: 1 }]} />
-          <View style={{ paddingHorizontal: w(16) }}>
+          {isPlacing ? (
+            <ActivityIndicator color={AppColors.white} />
+          ) : (
             <BaseText
-              title={t('or_pay_using')}
-              color={AppColors.textColor2}
-              size={sp(14)}
+              title={t('confirm_order_btn')}
+              color={AppColors.white}
+              size={sp(16)}
+              fontWeight="bold"
             />
-          </View>
-          <View style={[styles.flexDivider, { flex: 1 }]} />
-        </View>
-        <View style={{ height: h(16) }} />
+          )}
+        </Pressable>
 
-        {/* Social Pay Buttons */}
-        {buildSocialPayButton({
-          icon: (
-            <FontAwesome name="apple" color={AppColors.black} size={sp(24)} />
-          ),
-          text: t('apple_pay'),
-          onTap: () => {},
-        })}
-        <View style={{ height: h(12) }} />
-        {buildSocialPayButton({
-          icon: (
-            <MaterialIcons
-              name="g-translate"
-              color={AppColors.black}
-              size={sp(24)}
-            />
-          ), // Placeholder for Google G logo
-          text: t('google_pay'),
-          onTap: () => {},
-          isGoogle: true,
-        })}
         <View style={{ height: h(24) }} />
       </ScrollView>
     </SafeAreaView>
@@ -341,14 +278,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  visaBadge: {
-    width: w(32),
-    height: h(20),
-    backgroundColor: AppColors.visaCardColor,
-    borderRadius: r(4),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   checkCircle: {
     padding: w(2),
     backgroundColor: AppColors.primaryColorTheme,
@@ -356,20 +285,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emptyCircle: {
-    width: w(20),
-    height: w(20),
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: AppColors.lightGreyV2,
+  toggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  addCard: {
-    padding: w(16),
+  noteInput: {
+    minHeight: h(70),
     borderWidth: 1,
     borderColor: AppColors.lightGreyV2,
     borderRadius: r(8),
-    flexDirection: 'row',
-    alignItems: 'center',
+    padding: w(12),
+    fontSize: sp(14),
+    color: AppColors.textColorTheme,
   },
   rowBetween: {
     flexDirection: 'row',
@@ -385,23 +313,6 @@ const styles = StyleSheet.create({
     height: h(50),
     backgroundColor: AppColors.primaryColorTheme,
     borderRadius: r(8),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  orRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  flexDivider: {
-    height: 1,
-    backgroundColor: AppColors.lightGreyV2,
-  },
-  socialBtn: {
-    width: '100%',
-    height: h(50),
-    backgroundColor: AppColors.lightGreyV2,
-    borderRadius: r(8),
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -1,76 +1,51 @@
-// Ported from: lib/screens/auth/verification_code_screen.dart (VerificationCodeScreen)
-import React, { useRef, useState } from 'react';
+// Phone OTP verification. Enter the 6-digit code -> verify -> home.
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   ScrollView,
   StyleSheet,
   TextInput,
-  Dimensions,
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
-import { AppColors, TextStyles } from '@/theme';
+import { AppColors, w, h, TextStyles } from '@/theme';
 import { Responsive } from '@/theme/responsive';
 import { t } from '@/i18n';
-import {
-  AppImage,
-  BaseText,
-  TextButton,
-  LoadingButton,
-  AppBar,
-} from '@/components';
-import { Res } from '@/lib/assets';
+import { BaseText, TextButton, LoadingButton, AppBar } from '@/components';
+import { showSnack } from '@/lib/snack';
 import { useNavArgs } from '@/store/navArgs';
 import { useAuthControllerStore } from '@/features/auth/authStore';
 
-const kToolbarHeight = 56;
-const kBottomNavigationBarHeight = 56;
-const PIN_LENGTH = 4;
+const PIN_LENGTH = 6;
 
 export default function VerificationCodeScreen() {
   const router = useRouter();
 
-  // late final bool goToResetNewPassword;
-  // initState: goToResetNewPassword = Get.arguments ?? false;
   const navArguments = useNavArgs((s) => s.args);
-  const goToResetNewPassword: boolean =
-    (navArguments?.goToResetNewPassword as boolean) ?? false;
+  const phone: string = (navArguments?.phone as string) ?? '';
 
-  // String verifyCode = '';
-  const [verifyCode, setVerifyCode] = useState('');
-
-  // authController.state.isLoading.value
   const isLoading = useAuthControllerStore((s) => s.isLoading);
-  const email = useAuthControllerStore((s) => s.email); // state.emailTextEditingController.text
+  const lastDevOtp = useAuthControllerStore((s) => s.lastDevOtp);
 
-  // double screenSize = MediaQuery.of(context).size.height;
-  const screenSize = Dimensions.get('window').height;
-  // double height = screenSize - kToolbarHeight - kBottomNavigationBarHeight;
-  const height = screenSize - kToolbarHeight - kBottomNavigationBarHeight;
-
-  // Ka4PinCodeField — simple pure-RN pin field.
   const inputRefs = useRef<Array<TextInput | null>>([]);
   const [digits, setDigits] = useState<string[]>(Array(PIN_LENGTH).fill(''));
-  const fieldSize = Responsive.iconLarge * 2;
+
+  // Dev convenience: prefill the OTP returned by the backend (no real SMS).
+  useEffect(() => {
+    if (lastDevOtp && lastDevOtp.length === PIN_LENGTH) {
+      setDigits(lastDevOtp.split(''));
+    }
+  }, [lastDevOtp]);
 
   const handleChange = (text: string, index: number) => {
     const value = text.replace(/[^0-9]/g, '').slice(-1);
     const next = [...digits];
     next[index] = value;
     setDigits(next);
-
     if (value && index < PIN_LENGTH - 1) {
       inputRefs.current[index + 1]?.focus();
-    }
-
-    const code = next.join('');
-    if (code.length === PIN_LENGTH && !next.includes('')) {
-      // onCompleted: (code) { verifyCode = code; debugPrint("Verification Code: $code"); }
-      setVerifyCode(code);
-      // eslint-disable-next-line no-console
-      console.log('Verification Code: ' + code);
     }
   };
 
@@ -81,58 +56,42 @@ export default function VerificationCodeScreen() {
   };
 
   const onConfirm = async () => {
-    if (goToResetNewPassword) {
-      // final res =
-      //     await authController.checkCodeForResetPassword(
-      //         email:
-      //             authController.state.emailForForgotPassword,
-      //         code: verifyCode);
-      // if (res) {
-      //   Navigator.push(
-      //     context,
-      //     MaterialPageRoute(
-      //         builder: (context) =>
-      //             const ResetNewPasswordScreen()),
-      //   );
-      // }
-    } else {
-      const res = await useAuthControllerStore.getState().verifyCode({
-        email: email,
-        code: verifyCode,
-      });
-      void res;
-      // if (res) {
-      //   final registerRes = await authController.register();
-      //   if (registerRes) {
-      //     if (res) {
-      //       Navigator.push(
-      //         context,
-      //         MaterialPageRoute(
-      //             builder: (context) =>
-      //                 const CreateAccountSuccessfullyScreen()),
-      //       );
-      //     }
-      //   }
-      // }
+    const code = digits.join('');
+    if (code.length !== PIN_LENGTH) {
+      showSnack(t('plz_enter_valid_phone_number'), 'error');
+      return;
     }
+    const ok = await useAuthControllerStore.getState().verifyOtpLogin(phone, code);
+    if (ok) {
+      router.replace('/(tabs)');
+    }
+  };
+
+  const onResend = async () => {
+    const ok = await useAuthControllerStore.getState().requestOtpLogin(phone);
+    if (ok) showSnack(t('resend_code'), 'success');
   };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <AppBar title={t('verification_code')} />
-      <ScrollView>
-        <View
-          style={[
-            styles.container,
-            { height },
-            Responsive.getResponsivePadding(),
-          ]}
-        >
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <View style={[styles.container, Responsive.getResponsivePadding()]}>
           <BaseText
-            title={t('sent_verification_code_email')}
+            title={t('verify_phone_dsc')}
             style={[TextStyles.bodyMedium, { color: AppColors.darkGray }]}
             textAlign="center"
           />
+          {!!phone && (
+            <>
+              <View style={{ height: h(6) }} />
+              <BaseText
+                title={phone}
+                style={[TextStyles.headlineMedium, { color: AppColors.primaryColorTheme }]}
+                textAlign="center"
+              />
+            </>
+          )}
 
           <View style={{ height: Responsive.gapLarge }} />
 
@@ -145,21 +104,24 @@ export default function VerificationCodeScreen() {
                 }}
                 value={d}
                 onChangeText={(text) => handleChange(text, i)}
-                onKeyPress={({ nativeEvent }) =>
-                  handleKeyPress(nativeEvent.key, i)
-                }
+                onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, i)}
                 keyboardType="number-pad"
                 maxLength={1}
-                style={[
-                  styles.pinField,
-                  {
-                    width: fieldSize,
-                    height: fieldSize,
-                  },
-                ]}
+                style={styles.pinField}
               />
             ))}
           </View>
+
+          {__DEV__ && (
+            <>
+              <View style={{ height: h(10) }} />
+              <BaseText
+                title={t('dev_use_code').replace('@code', '000000')}
+                style={[TextStyles.bodySmall, { color: AppColors.greyTextColorV3 }]}
+                textAlign="center"
+              />
+            </>
+          )}
 
           <View style={{ height: Responsive.gapLarge }} />
 
@@ -172,21 +134,11 @@ export default function VerificationCodeScreen() {
 
           <View style={{ height: Responsive.gapLarge }} />
 
-          <Pressable onPress={() => {}}>
+          <Pressable onPress={onResend}>
             <View style={styles.resendRow}>
               <TextButton
                 title={t('resend_code')}
-                textStyle={[
-                  TextStyles.headlineMedium,
-                  { color: AppColors.lightBlue },
-                ]}
-              />
-              <AppImage
-                source={Res.appleIcon}
-                style={{
-                  height: Responsive.iconMedium,
-                  width: Responsive.iconMedium,
-                }}
+                textStyle={[TextStyles.bodyMedium, { color: AppColors.lightBlue }]}
               />
             </View>
           </Pressable>
@@ -201,28 +153,35 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: AppColors.backgroundColor,
   },
+  scroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
   container: {
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: h(24),
   },
   pinRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: Responsive.gap,
+    gap: w(10),
   },
   pinField: {
+    width: w(46),
+    height: w(54),
     borderWidth: 1,
     borderColor: AppColors.darkGray,
     borderRadius: 10,
     backgroundColor: AppColors.white,
     textAlign: 'center',
-    fontSize: 20,
+    fontSize: 22,
     color: AppColors.textColorTheme,
   },
   resendRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: Responsive.gapTiny,
+    gap: w(6),
   },
 });

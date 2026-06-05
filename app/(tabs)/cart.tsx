@@ -1,10 +1,11 @@
 // Ported from lib/screens/cart/cart_screen.dart (CartScreen)
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   ScrollView,
   Pressable,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -16,6 +17,8 @@ import { t } from '@/i18n';
 import { BaseText } from '@/components';
 import { useAuthStore } from '@/store/authStore';
 import { showSnack } from '@/lib/snack';
+import { formatPrice } from '@/lib/currency';
+import { useCartStore } from '@/features/cart/cartStore';
 import {
   CartItemCard,
   OrderSummaryCard,
@@ -27,6 +30,18 @@ export default function CartScreen() {
 
   const [promo, setPromo] = useState(''); // final TextEditingController _promoController
   const [isPromoApplied, setIsPromoApplied] = useState(false);
+
+  const items = useCartStore((s) => s.items);
+  const summary = useCartStore((s) => s.summary);
+  const isLoading = useCartStore((s) => s.isLoading);
+
+  useEffect(() => {
+    useCartStore.getState().loadCart();
+  }, []);
+
+  // No delivery fee data from the backend cart yet -> 0 until known.
+  const deliveryFee = 0;
+  const total = summary.subtotal + deliveryFee;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -49,74 +64,81 @@ export default function CartScreen() {
       {/* body: Column */}
       <View style={{ flex: 1 }}>
         {/* Expanded -> SingleChildScrollView */}
-        <ScrollView style={{ flex: 1 }}>
-          <View style={[styles.bodyPadding, { paddingHorizontal: Responsive.getResponsivePadding().paddingHorizontal }]}>
-            <View style={{ height: h(16) }} />
-
-            {/* Cart Items */}
-            <CartItemCard
-              name="Organic Avocado"
-              description="Extra ripe"
-              price="22 ₿ × 1"
-              imageUrl=""
-              quantity={1}
-              onIncrement={() => {}}
-              onDecrement={() => {}}
-              onDelete={() => {}}
-            />
-            <CartItemCard
-              name="Strawberry"
-              description="Premium qu..."
-              price="AED 18 × 2 ₿ × 1"
-              imageUrl=""
-              quantity={2}
-              onIncrement={() => {}}
-              onDecrement={() => {}}
-              onDelete={() => {}}
-            />
-            <CartItemCard
-              name="Saffron"
-              description="100% pure 1..."
-              price="AED 45 × 1 ₿ × 1"
-              imageUrl=""
-              quantity={1}
-              onIncrement={() => {}}
-              onDecrement={() => {}}
-              onDelete={() => {}}
-            />
-
-            <View style={{ height: h(16) }} />
-
-            {/* Promo Code Section */}
-            <PromoCodeInput
-              value={promo}
-              onChangeText={setPromo}
-              onApply={() => {
-                setIsPromoApplied(true);
-              }}
-              isApplied={isPromoApplied}
-              appliedMessage={t('promo_code_applied')}
-            />
-
-            <View style={{ height: h(20) }} />
-
-            {/* Order Summary */}
-            <OrderSummaryCard
-              subtotal="AED 103.00"
-              deliveryFee="AED 10.00"
-              taxes="AED 5.15"
-              discount="-AED 8.50"
-              total="AED 109.65"
-            />
-
-            <View style={{ height: h(20) }} />
+        {isLoading && items.length === 0 ? (
+          <View style={styles.centeredFill}>
+            <ActivityIndicator color={AppColors.primaryColor} />
           </View>
-        </ScrollView>
+        ) : items.length === 0 ? (
+          <View style={styles.centeredFill}>
+            <BaseText title={t('empty_cart')} style={styles.emptyText} />
+          </View>
+        ) : (
+          <ScrollView style={{ flex: 1 }}>
+            <View style={[styles.bodyPadding, { paddingHorizontal: Responsive.getResponsivePadding().paddingHorizontal }]}>
+              <View style={{ height: h(16) }} />
+
+              {/* Cart Items */}
+              {items.map((item) => (
+                <CartItemCard
+                  key={`${item.product_id}-${item.variation_id ?? ''}`}
+                  name={item.name}
+                  description=""
+                  price={`${formatPrice(item.unit_price)} × ${item.qty}`}
+                  imageUrl={item.image ?? ''}
+                  quantity={item.qty}
+                  onIncrement={() =>
+                    useCartStore
+                      .getState()
+                      .updateItem(item.product_id, item.qty + 1)
+                  }
+                  onDecrement={() => {
+                    if (item.qty <= 1) {
+                      useCartStore.getState().removeItem(item.product_id);
+                    } else {
+                      useCartStore
+                        .getState()
+                        .updateItem(item.product_id, item.qty - 1);
+                    }
+                  }}
+                  onDelete={() =>
+                    useCartStore.getState().removeItem(item.product_id)
+                  }
+                />
+              ))}
+
+              <View style={{ height: h(16) }} />
+
+              {/* Promo Code Section */}
+              <PromoCodeInput
+                value={promo}
+                onChangeText={setPromo}
+                onApply={() => {
+                  setIsPromoApplied(true);
+                }}
+                isApplied={isPromoApplied}
+                appliedMessage={t('promo_code_applied')}
+              />
+
+              <View style={{ height: h(20) }} />
+
+              {/* Order Summary */}
+              <OrderSummaryCard
+                subtotal={formatPrice(summary.subtotal)}
+                deliveryFee={formatPrice(deliveryFee)}
+                taxes={formatPrice(0)}
+                discount={formatPrice(0)}
+                total={formatPrice(total)}
+              />
+
+              <View style={{ height: h(20) }} />
+            </View>
+          </ScrollView>
+        )}
 
         {/* Bottom Buttons */}
         <View style={styles.bottomBar}>
-          {/* Continue Shopping Button */}
-          <Pressable style={styles.outlinedButton} onPress={() => {}}>
+          {/* Continue Shopping Button -> back to Home */}
+          <Pressable style={styles.outlinedButton} onPress={() => router.push('/(tabs)')}>
             <BaseText
               title={t('continue_shopping')}
               style={styles.outlinedButtonText}
@@ -174,6 +196,15 @@ const styles = StyleSheet.create({
   },
   bodyPadding: {
     alignItems: 'flex-start',
+  },
+  centeredFill: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    fontSize: sp(16),
+    color: AppColors.textColor2,
   },
   bottomBar: {
     padding: w(16),

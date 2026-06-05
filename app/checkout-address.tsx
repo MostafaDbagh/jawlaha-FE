@@ -15,6 +15,7 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { AppColors, w, h, r, sp } from '@/theme';
 import { t } from '@/i18n';
 import { BaseText } from '@/components';
+import { navArgs, useNavArgs } from '@/store/navArgs';
 
 // NOTE: Flutter used google_maps_flutter GoogleMap for the address preview.
 // Per migration conventions, render a simple map placeholder fallback.
@@ -146,10 +147,13 @@ function CheckoutDropdown({
 export default function CheckoutAddressScreen() {
   const router = useRouter();
 
+  const savedArgs = useNavArgs((s) => s.args);
   const [selectedDate, setSelectedDate] = useState('today');
   const [selectedTime, setSelectedTime] = useState('asap');
+  const [address, setAddress] = useState(
+    (savedArgs?.delivery_address as string) ?? 'Damascus, Syria',
+  );
   const [instructions, setInstructions] = useState('');
-  const [tip, setTip] = useState('');
 
   void _initialPosition;
 
@@ -241,17 +245,13 @@ export default function CheckoutAddressScreen() {
                 </Pressable>
               </View>
               <View style={{ height: h(4) }} />
-              <BaseText
-                title="Apartment 503, Al Nakheel Tower, Sheikh Zayed Road, Dubai, UAE" // Mock address
-                size={sp(12)}
-                color={AppColors.textColor2}
-                numberOfLines={2}
-              />
-              <View style={{ height: h(4) }} />
-              <BaseText
-                title="Building entrance: Main gate" // Mock note
-                size={sp(12)}
-                color={AppColors.textColor2}
+              <TextInput
+                value={address}
+                onChangeText={setAddress}
+                multiline
+                placeholder={t('delivery_address_label')}
+                placeholderTextColor={AppColors.textColor2}
+                style={styles.addressInput}
               />
             </View>
           </View>
@@ -344,37 +344,18 @@ export default function CheckoutAddressScreen() {
           textAlignVertical="top"
         />
 
-        <View style={{ height: h(16) }} />
-
-        {/* Driver Tip */}
-        <BaseText
-          title={t('driver_tip_label')}
-          size={sp(16)}
-          color={AppColors.textColor2}
-        />
-        <View style={{ height: h(8) }} />
-        <View style={styles.tipContainer}>
-          <MaterialIcons
-            name="attach-money" // Placeholder currency icon (Icons.currency_lira)
-            size={sp(20)}
-            color={AppColors.darkGray}
-          />
-          <View style={{ width: w(8) }} />
-          <TextInput
-            value={tip}
-            onChangeText={setTip}
-            keyboardType="numeric"
-            placeholder={t('enter_amount')}
-            placeholderTextColor={AppColors.textColor2}
-            style={styles.tipInput}
-          />
-        </View>
-
         <View style={{ height: h(40) }} />
 
         {/* Proceed Button */}
         <Pressable
           onPress={() => {
+            const chosen = address.trim() || 'Damascus, Syria';
+            // Merge into existing nav args so we don't clobber other keys.
+            navArgs.set({
+              ...navArgs.get(),
+              delivery_address: chosen,
+              delivery_note: instructions.trim() || undefined,
+            });
             router.push('/checkout-payment');
           }}
           style={styles.proceedButton}
@@ -466,19 +447,10 @@ const styles = StyleSheet.create({
     fontSize: sp(14),
     color: AppColors.textColorTheme,
   },
-  tipContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: w(12),
-    borderWidth: 1,
-    borderColor: AppColors.lightGreyV2,
-    borderRadius: r(8),
-  },
-  tipInput: {
-    flex: 1,
-    paddingVertical: h(12),
-    fontSize: sp(14),
-    color: AppColors.textColorTheme,
+  addressInput: {
+    padding: 0,
+    fontSize: sp(12),
+    color: AppColors.textColor2,
   },
   proceedButton: {
     width: '100%',

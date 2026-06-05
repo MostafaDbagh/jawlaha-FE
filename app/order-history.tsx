@@ -1,11 +1,12 @@
 // Ported from: lib/screens/home/order_history_screen.dart
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   ScrollView,
   Pressable,
   StyleSheet,
   FlatList,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
@@ -13,16 +14,53 @@ import { useRouter } from 'expo-router';
 import { AppColors, w, h, r, sp } from '@/theme';
 import { BaseText } from '@/components';
 import { t } from '@/i18n';
-import { useI18n } from '@/i18n';
-// Feature store (per task) — imported & available even though this screen uses mock data.
-import { useHomeStore } from '@/features/home/homeStore';
+import { formatPrice } from '@/lib/currency';
+import { navArgs } from '@/store/navArgs';
+import { useOrdersStore, type Order } from '@/features/orders/ordersStore';
+
+// In-progress statuses (used for client-side filtering of the "In Progress" tab).
+const IN_PROGRESS_STATUSES = ['pending', 'preparing', 'ready', 'on_the_way'];
+
+// Map a backend status value to a display label, falling back to the raw value.
+function statusLabel(status: string): string {
+  switch (status) {
+    case 'delivered':
+      return t('delivered');
+    case 'cancelled':
+      return t('cancelled');
+    case 'pending':
+      return t('pending');
+    case 'on_the_way':
+      return t('on_its_way');
+    default:
+      return status;
+  }
+}
+
+function statusColor(status: string): string {
+  if (status === 'cancelled') return AppColors.red ?? '#E53935';
+  return AppColors.primaryColor;
+}
+
+function formatDate(value?: string): string {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return value;
+  return d.toLocaleString('en', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
 
 export default function OrderHistoryScreen() {
   const router = useRouter();
-  const { lang } = useI18n();
 
-  // Imported feature store available (mirrors Flutter screen wiring).
-  void useHomeStore;
+  const orders = useOrdersStore((s) => s.orders);
+  const totalOrders = useOrdersStore((s) => s.totalOrders);
+  const isLoading = useOrdersStore((s) => s.isLoading);
 
   const [selectedFilter, setSelectedFilter] = useState<string>('All Orders');
   const filters: string[] = [
@@ -31,6 +69,29 @@ export default function OrderHistoryScreen() {
     'In Progress',
     'Cancelled',
   ];
+
+  // Initial load.
+  useEffect(() => {
+    useOrdersStore.getState().loadOrders();
+  }, []);
+
+  const onSelectFilter = (filter: string) => {
+    setSelectedFilter(filter);
+    const load = useOrdersStore.getState().loadOrders;
+    if (filter === 'Delivered') load('delivered');
+    else if (filter === 'Cancelled') load('cancelled');
+    else load(); // 'All Orders' & 'In Progress' both load all, the latter filters client-side
+  };
+
+  // The "In Progress" tab is filtered client-side across multiple statuses.
+  const visibleOrders = useMemo(() => {
+    if (selectedFilter === 'In Progress') {
+      return orders.filter((o) => IN_PROGRESS_STATUSES.includes(o.status));
+    }
+    return orders;
+  }, [orders, selectedFilter]);
+
+  const currentMonth = new Date().toLocaleString('en', { month: 'long' });
 
   return (
     <SafeAreaView
@@ -48,7 +109,6 @@ export default function OrderHistoryScreen() {
         </Pressable>
         <View style={styles.appBarTitleWrap}>
           <BaseText
-            // Using orders_history existing key
             title={t('orders_history')}
             color={AppColors.black}
             size={sp(18)}
@@ -84,8 +144,8 @@ export default function OrderHistoryScreen() {
             <View style={{ width: w(12) }} />
             <BaseText
               title={t('you_placed_orders_in', {
-                count: '12',
-                month: 'August',
+                count: totalOrders,
+                month: currentMonth,
               })}
               color={AppColors.textColor2}
               size={sp(14)}
@@ -101,23 +161,10 @@ export default function OrderHistoryScreen() {
         >
           {filters.map((filter) => {
             const isSelected = selectedFilter === filter;
-            // Mapping filter name to key if needed, or just display text for mock
-            let displayText = filter;
-            if (filter === 'All Orders') displayText = t('orders'); // Mock
-            if (filter === 'Delivered') displayText = t('delivered');
-            if (filter === 'In Progress') displayText = t('pending'); // or custom
-            if (filter === 'Cancelled') displayText = t('cancelled');
-
-            // Override for English display to match design if keys miss
-            if (lang === 'en') {
-              // Keep original strings for English consistency with design
-              displayText = filter;
-            }
-
             return (
               <Pressable
                 key={filter}
-                onPress={() => setSelectedFilter(filter)}
+                onPress={() => onSelectFilter(filter)}
                 style={styles.filterItemWrap}
               >
                 <View
@@ -131,7 +178,7 @@ export default function OrderHistoryScreen() {
                   ]}
                 >
                   <BaseText
-                    title={displayText}
+                    title={filter}
                     color={isSelected ? AppColors.white : AppColors.textColorTheme}
                     size={sp(14)}
                     fontWeight="500"
@@ -178,94 +225,106 @@ export default function OrderHistoryScreen() {
         </View>
 
         {/* List */}
-        <FlatList
-          style={{ flex: 1 }}
-          contentContainerStyle={styles.listContent}
-          data={[0, 1, 2, 3]}
-          keyExtractor={(item) => String(item)}
-          renderItem={({ index }) => {
-            // Mock Logic for status
-            const statusKey = 'delivered';
-            const statusColor = AppColors.primaryColor;
-            let isDelivered = true;
+        {isLoading && orders.length === 0 ? (
+          <View style={styles.centerFill}>
+            <ActivityIndicator color={AppColors.primaryColor} />
+          </View>
+        ) : visibleOrders.length === 0 ? (
+          <View style={styles.centerFill}>
+            <BaseText
+              title={t('no_orders')}
+              size={sp(14)}
+              color={AppColors.textColor2}
+              textAlign="center"
+            />
+          </View>
+        ) : (
+          <FlatList
+            style={{ flex: 1 }}
+            contentContainerStyle={styles.listContent}
+            data={visibleOrders}
+            keyExtractor={(order) => order.order_id}
+            renderItem={({ item: order }: { item: Order }) => {
+              const isDelivered = order.status === 'delivered';
+              const isCancelled = order.status === 'cancelled';
+              const canTrack = !isDelivered && !isCancelled;
 
-            if (index === 1) {
-              // Make second item "In Progress" to show Track button logic
-              // But user design shows all "Delivered" in the list?
-              // No, design shows "Delivered" on all cards BUT second card has "Track Order".
-              // Maybe it's active.
-              // I'll simulate index 1 as active.
-              // statusKey = "In Progress";
-              // But design text says "Delivered" on that card too!
-              // This implies "Delivered" but "Track Order" button? Maybe "Track recent delivery"?
-              // Or maybe it's just a mock inconsistency.
-              // I'll stick to: If index 1, show "Track Order" button.
-              isDelivered = false; // logic flag for button
-            }
+              const openDetails = () => {
+                navArgs.set({ orderId: order.order_id });
+                router.push('/order-details');
+              };
 
-            return (
-              <View style={styles.orderCardWrap}>
-                <View style={styles.orderCard}>
-                  {/* Header */}
-                  <View style={styles.rowBetween}>
-                    <BaseText
-                      title="#JWL-2025-0098"
-                      size={sp(14)}
-                      fontWeight="bold"
-                      color={AppColors.black}
-                    />
-                    <BaseText
-                      title={t(statusKey)}
-                      size={sp(14)}
-                      fontWeight="500"
-                      color={statusColor}
-                    />
-                  </View>
-                  <View style={{ height: h(4) }} />
-                  <BaseText
-                    title="Aug 10, 2025 - 7:45 PM"
-                    size={sp(12)}
-                    color={AppColors.textColor2}
-                  />
-                  <View style={{ height: h(12) }} />
-                  {/* Titles */}
-                  <BaseText
-                    title="Nova Sweets, Burger House"
-                    size={sp(16)}
-                    color={AppColors.textColorTheme}
-                  />
-                  <View style={{ height: h(16) }} />
-                  {/* Footer */}
-                  <View style={styles.rowBetween}>
-                    <BaseText
-                      title={`78.50 ${t('aed')}`}
-                      size={sp(16)}
-                      fontWeight="bold"
-                      color={AppColors.black}
-                    />
-                    <Pressable
-                      onPress={() => {
-                        if (!isDelivered) {
-                          router.push('/tracking-order');
-                        } else {
-                          // View Details
-                        }
-                      }}
-                      style={styles.cardButton}
-                    >
+              return (
+                <View style={styles.orderCardWrap}>
+                  <Pressable style={styles.orderCard} onPress={openDetails}>
+                    {/* Header */}
+                    <View style={styles.rowBetween}>
                       <BaseText
-                        title={!isDelivered ? t('track_your_order') : t('view_details')}
-                        size={sp(12)}
-                        fontWeight="600"
-                        color={AppColors.white}
+                        title={`#${order.order_id}`}
+                        size={sp(14)}
+                        fontWeight="bold"
+                        color={AppColors.black}
                       />
-                    </Pressable>
-                  </View>
+                      <BaseText
+                        title={statusLabel(order.status)}
+                        size={sp(14)}
+                        fontWeight="500"
+                        color={statusColor(order.status)}
+                      />
+                    </View>
+                    <View style={{ height: h(4) }} />
+                    <BaseText
+                      title={formatDate(order.created_at)}
+                      size={sp(12)}
+                      color={AppColors.textColor2}
+                    />
+                    <View style={{ height: h(12) }} />
+                    {/* Titles */}
+                    <BaseText
+                      title={order.vendor_name ?? ''}
+                      size={sp(16)}
+                      color={AppColors.textColorTheme}
+                    />
+                    <View style={{ height: h(4) }} />
+                    <BaseText
+                      title={`${order.items.length} ${t('items')}`}
+                      size={sp(12)}
+                      color={AppColors.textColor2}
+                    />
+                    <View style={{ height: h(16) }} />
+                    {/* Footer */}
+                    <View style={styles.rowBetween}>
+                      <BaseText
+                        title={formatPrice(order.total)}
+                        size={sp(16)}
+                        fontWeight="bold"
+                        color={AppColors.black}
+                      />
+                      <Pressable
+                        onPress={() => {
+                          if (canTrack) {
+                            navArgs.set({ orderId: order.order_id });
+                            router.push('/tracking-order');
+                          } else {
+                            openDetails();
+                          }
+                        }}
+                        style={styles.cardButton}
+                      >
+                        <BaseText
+                          title={canTrack ? t('track_your_order') : t('view_details')}
+                          size={sp(12)}
+                          fontWeight="600"
+                          color={AppColors.white}
+                        />
+                      </Pressable>
+                    </View>
+                  </Pressable>
                 </View>
-              </View>
-            );
-          }}
-        />
+              );
+            }}
+          />
+        )}
       </View>
     </SafeAreaView>
   );
@@ -329,6 +388,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  centerFill: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: w(16),
   },
   listContent: {
     padding: w(16),

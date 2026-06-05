@@ -1,9 +1,10 @@
 // Ported from screens/cart/widgets/category_card.dart (CategoryCard)
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, View, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { AppColors, w, h, r, sp } from '@/theme';
-import { AppImage, BaseText } from '@/components';
+import { BaseText } from '@/components';
 
 export interface CategoryCardProps {
   label: string;
@@ -15,23 +16,22 @@ export interface CategoryCardProps {
 
 export function CategoryCard({ label, icon, imageUrl, onPress }: CategoryCardProps) {
   const fallbackIcon = icon ?? 'grid'; // Icons.category -> closest Ionicons
+  const [imgError, setImgError] = useState(false);
 
-  const showImage = !!imageUrl && imageUrl.length > 0;
+  const showImage = !!imageUrl && imageUrl.length > 0 && !imgError;
 
   return (
     <Pressable onPress={onPress}>
       <View style={styles.column}>
         <View style={styles.box}>
           {showImage ? (
-            <View style={styles.imagePadding}>
-              <AppImage
-                source={imageUrl}
-                width={65 - 24}
-                height={65 - 24}
-                contentFit="contain"
-                style={styles.image}
-              />
-            </View>
+            <Image
+              source={{ uri: imageUrl }}
+              style={styles.image}
+              contentFit="cover"
+              transition={0}
+              onError={() => setImgError(true)}
+            />
           ) : (
             <Ionicons name={fallbackIcon} color={AppColors.primaryColor} size={sp(30)} />
           )}
@@ -62,13 +62,11 @@ const styles = StyleSheet.create({
     borderRadius: r(16),
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  imagePadding: {
-    padding: w(12),
+    overflow: 'hidden',
   },
   image: {
-    width: '100%',
-    height: '100%',
+    width: w(65),
+    height: w(65),
   },
 });
 

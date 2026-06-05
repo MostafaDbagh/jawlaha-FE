@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { showSnack } from '@/lib/snack';
 
 import { AppColors, w, h, r, sp } from '@/theme';
 import { t } from '@/i18n';
@@ -46,13 +47,7 @@ export default function ProfileScreen() {
                 {/* Profile Picture */}
                 <View style={styles.avatarStack}>
                   <View style={styles.avatarCircle}>
-                    <Image
-                      source={{ uri: 'https://via.placeholder.com/100' }}
-                      style={styles.avatarImage}
-                      resizeMode="cover"
-                    />
-                    {/* errorBuilder fallback (person icon) is handled visually by
-                        the placeholder background; rendered behind the image. */}
+                    {/* Person-icon fallback (shown when no profile image). */}
                     <View style={styles.avatarFallback}>
                       <Ionicons
                         name="person"
@@ -60,6 +55,13 @@ export default function ProfileScreen() {
                         color={AppColors.textColor2}
                       />
                     </View>
+                    {!!(user as any)?.profile_image && (
+                      <Image
+                        source={{ uri: (user as any).profile_image }}
+                        style={styles.avatarImage}
+                        resizeMode="cover"
+                      />
+                    )}
                   </View>
                   <View style={styles.cameraBadge}>
                     <MaterialIcons
@@ -94,7 +96,7 @@ export default function ProfileScreen() {
                 <View style={{ height: h(20) }} />
 
                 {/* Edit Profile Button */}
-                <Pressable style={styles.editButton} onPress={() => {}}>
+                <Pressable style={styles.editButton} onPress={() => router.push('/edit-profile')}>
                   <BaseText
                     title={t('edit_profile')}
                     style={styles.editButtonText}
@@ -111,22 +113,22 @@ export default function ProfileScreen() {
             <ProfileMenuItem
               icon="person-outline"
               title={t('personal_info')}
-              onPress={() => {}}
+              onPress={() => router.push('/edit-profile')}
             />
             <ProfileMenuItem
               icon="location-outline"
               title={t('saved_addresses')}
-              onPress={() => {}}
+              onPress={() => router.push('/choose-location')}
             />
             <ProfileMenuItem
               icon="card-outline"
               title={t('payment_methods')}
-              onPress={() => {}}
+              onPress={() => showSnack(t('cash_on_delivery'), 'info')}
             />
             <ProfileMenuItem
               icon="heart-outline"
               title={t('favorites')}
-              onPress={() => {}}
+              onPress={() => showSnack(t('coming_soon'), 'info')}
             />
             <ProfileMenuItem
               icon="notifications-outline"

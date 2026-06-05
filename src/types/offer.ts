@@ -19,8 +19,11 @@ export function parseOfferModel(json: any): OfferModel {
     id: json?.id,
     title: json?.title,
     description: json?.description,
-    discountType: json?.discount_type,
-    discountValue: json?.discount_value != null ? Number(json.discount_value) : undefined,
+    // Backend sends `type`/`value`; keep snake fallbacks for older contracts.
+    discountType: json?.type ?? json?.discount_type,
+    discountValue: (json?.value ?? json?.discount_value) != null
+      ? Number(json.value ?? json.discount_value)
+      : undefined,
     startDate: json?.start_date,
     endDate: json?.end_date,
     isActive: json?.is_active,

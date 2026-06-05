@@ -2,9 +2,10 @@
 // interface + parseX(json) (fromJson) + xToJson (toJson).
 
 export interface ProductVariation {
-  id?: number;
+  id?: string | number;
   name?: string;
   priceModifier?: number;
+  price?: number;
   stockQuantity?: number;
   sku?: string;
   isActive?: boolean;
@@ -13,8 +14,10 @@ export interface ProductVariation {
 export function parseProductVariation(json: any): ProductVariation {
   return {
     id: json?.id,
-    name: json?.name,
+    // Backend stores the display name inside `attributes.name`.
+    name: json?.attributes?.name ?? json?.name,
     priceModifier: json?.price_modifier != null ? Number(json.price_modifier) : undefined,
+    price: json?.price != null ? Number(json.price) : undefined,
     stockQuantity: json?.stock_quantity,
     sku: json?.sku,
     isActive: json?.is_active,
@@ -33,14 +36,16 @@ export function productVariationToJson(v: ProductVariation): any {
 }
 
 export interface ProductModel {
-  id?: number;
+  id?: string | number;
   name?: string;
   description?: string;
   price?: number;
+  finalPrice?: number;
   stockQuantity?: number;
   sku?: string;
   imageUrl?: string;
-  subcategoryId?: number;
+  subcategoryId?: string | number;
+  branchId?: string | number;
   isActive?: boolean;
   variations?: ProductVariation[];
 }
@@ -51,10 +56,13 @@ export function parseProductModel(json: any): ProductModel {
     name: json?.name,
     description: json?.description,
     price: json?.price != null ? Number(json.price) : undefined,
+    finalPrice: json?.final_price != null ? Number(json.final_price) : undefined,
     stockQuantity: json?.stock_quantity,
     sku: json?.sku,
-    imageUrl: json?.image_url,
+    // Backend sends `image`; keep image_url as a fallback.
+    imageUrl: json?.image ?? json?.image_url,
     subcategoryId: json?.subcategory_id,
+    branchId: json?.branch_id,
     isActive: json?.is_active,
     variations: json?.variations != null ? json.variations.map(parseProductVariation) : undefined,
   };

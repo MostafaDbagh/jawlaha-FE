@@ -1,5 +1,7 @@
 // Ported from lib/screens/categories/sub_categories_screen.dart (SubCategoriesScreen)
-import React, { useState } from 'react';
+// Reached from the home Categories row with navArgs { categoryId, categoryName }.
+// Products live under branches, so we browse a LIST OF SHOPS (real branches).
+import React, { useEffect, useState } from 'react';
 import {
   View,
   ScrollView,
@@ -7,6 +9,7 @@ import {
   TextInput,
   Pressable,
   Modal,
+  ActivityIndicator,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,42 +19,20 @@ import { AppColors, w, h, r, sp } from '@/theme';
 import { BaseText } from '@/components';
 import { VendorListCard } from '@/components/cards';
 import { t } from '@/i18n';
-// import { useProductStore } from '@/features/categories/productStore';
-
-interface VendorData {
-  name: string;
-  cover: string;
-  logo: string;
-  rating: number;
-  reviews: number;
-  badges: string[];
-}
+import { navArgs, useNavArgs } from '@/store/navArgs';
+import { useBranchesStore } from '@/features/branches/branchesStore';
 
 export default function SubCategoriesScreen() {
   const router = useRouter();
+  const args = useNavArgs((s) => s.args);
+  const categoryName = args.categoryName as string | undefined;
 
-  // Mock data for filter chips
-  const _filters: string[] = ['Colour', 'Material', 'Brand'];
+  const branches = useBranchesStore((s) => s.branches);
+  const isLoading = useBranchesStore((s) => s.isLoading);
 
-  // Mock data for vendors (Sweets)
-  const _vendors: VendorData[] = [
-    {
-      name: 'Sweet Delights',
-      cover: 'https://via.placeholder.com/400x200',
-      logo: 'https://via.placeholder.com/100',
-      rating: 4.8,
-      reviews: 320,
-      badges: ['Free Delivery', '20% Off'],
-    },
-    {
-      name: 'Sweets Shop',
-      cover: 'https://via.placeholder.com/400x200',
-      logo: 'https://via.placeholder.com/100',
-      rating: 4.8,
-      reviews: 320,
-      badges: ['Free Delivery', '20% Off'],
-    },
-  ];
+  useEffect(() => {
+    useBranchesStore.getState().getBranches();
+  }, []);
 
   const [filterSheetVisible, setFilterSheetVisible] = useState(false);
 
@@ -68,7 +49,10 @@ export default function SubCategoriesScreen() {
         >
           <Ionicons name="arrow-back" size={r(24)} color={AppColors.textColorTheme} />
         </Pressable>
-        <BaseText title={t('sub_categories_title')} style={styles.appBarTitle} />
+        <BaseText
+          title={categoryName ?? t('sub_categories_title')}
+          style={styles.appBarTitle}
+        />
         <View style={styles.appBarLeading} />
       </View>
       {/* AppBar bottom divider (PreferredSize 1.0) */}
@@ -102,52 +86,47 @@ export default function SubCategoriesScreen() {
 
           <View style={{ height: h(16) }} />
 
-          {/* Filter Chips */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chipsRow}
-          >
-            {_filters.map((filter) => (
-              <View key={filter} style={styles.chip}>
-                <BaseText title={filter} style={styles.chipText} />
-                <View style={{ width: w(4) }} />
-                <MaterialIcons
-                  name="keyboard-arrow-down"
-                  size={sp(16)}
-                  color={AppColors.textColor2}
-                />
-              </View>
-            ))}
-          </ScrollView>
-
-          <View style={{ height: h(16) }} />
-
-          {/* Vendor List */}
+          {/* Shop List (real branches) */}
           <View style={{ flex: 1 }}>
-            <FlatList
-              data={_vendors}
-              keyExtractor={(_, index) => index.toString()}
-              contentContainerStyle={styles.listPadding}
-              renderItem={({ item: vendor }) => (
-                <VendorListCard
-                  name={vendor.name}
-                  coverImage={vendor.cover}
-                  logoImage={vendor.logo}
-                  rating={vendor.rating}
-                  reviewCount={vendor.reviews}
-                  badges={vendor.badges.map((e) => {
-                    if (e === 'Free Delivery') return t('free_delivery');
-                    if (e === '20% Off') return `20% ${t('off')}`;
-                    return e;
-                  })}
-                  buttonText={t('view_menu')} // Custom button text
-                  onPress={() => {
-                    router.push('/vendor-details');
-                  }}
-                />
-              )}
-            />
+            {isLoading && branches.length === 0 ? (
+              <ActivityIndicator
+                style={{ marginTop: h(40) }}
+                color={AppColors.primaryColor}
+              />
+            ) : (
+              <FlatList
+                data={branches}
+                keyExtractor={(item, index) => String(item.id ?? index)}
+                contentContainerStyle={styles.listPadding}
+                showsVerticalScrollIndicator={false}
+                ListEmptyComponent={
+                  <BaseText
+                    title={t('no_orders')}
+                    style={styles.emptyText}
+                  />
+                }
+                renderItem={({ item: branch }) => {
+                  const badges: string[] = [];
+                  if (branch.freeDelivery) badges.push(t('free_delivery'));
+                  if (branch.isOpen) badges.push(t('open_now'));
+                  return (
+                    <VendorListCard
+                      name={branch.name ?? ''}
+                      coverImage={branch.image ?? ''}
+                      logoImage={branch.image ?? ''}
+                      rating={branch.rating ?? 0}
+                      reviewCount={branch.reviewsCount ?? 0}
+                      badges={badges}
+                      buttonText={t('view_menu')}
+                      onPress={() => {
+                        navArgs.set({ branch });
+                        router.push('/vendor-details');
+                      }}
+                    />
+                  );
+                }}
+              />
+            )}
           </View>
         </View>
 
@@ -319,22 +298,10 @@ const styles = StyleSheet.create({
     color: AppColors.textColorTheme,
     fontSize: sp(14),
   },
-  chipsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: w(16),
-  },
-  chip: {
-    marginRight: w(8),
-    paddingHorizontal: w(16),
-    paddingVertical: h(8),
-    backgroundColor: AppColors.lightGreyV2,
-    borderRadius: r(20),
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  chipText: {
-    fontSize: sp(14),
-    color: AppColors.textColor2,
+  emptyText: {
+    textAlign: 'center',
+    marginTop: h(40),
+    color: AppColors.greyTextColorV3,
   },
   listPadding: {
     paddingHorizontal: w(16),

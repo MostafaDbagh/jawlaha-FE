@@ -1,10 +1,11 @@
 // Ported from model/category_model.dart
 
 export interface CategoryModel {
-  id?: number;
+  id?: string | number;
   name?: string;
   description?: string;
   imageUrl?: string;
+  freeDelivery?: boolean;
 }
 
 export function parseCategoryModel(json: any): CategoryModel {
@@ -12,7 +13,9 @@ export function parseCategoryModel(json: any): CategoryModel {
     id: json?.id,
     name: json?.name,
     description: json?.description,
-    imageUrl: json?.image_url,
+    // Backend sends `image`; keep image_url as a fallback.
+    imageUrl: json?.image ?? json?.image_url,
+    freeDelivery: json?.free_delivery,
   };
 }
 

@@ -54,4 +54,4 @@ export const mediaUrl = (path?: string | null): string | undefined => {
   return `${API.mediaUrl}${path.startsWith('/') ? '' : '/'}${path}`;
 };
 
-export const AppCurrency = '£';
+export const AppCurrency = 'SYP';

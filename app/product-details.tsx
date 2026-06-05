@@ -1,55 +1,58 @@
 // Ported from: lib/screens/categories/product_details_screen.dart
-import React, { useState } from 'react';
+// Real backend data: product + branch passed via navArgs; variations as options.
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
+  ActivityIndicator,
   type TextStyle,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 
 import { AppColors, w, h, r, sp } from '@/theme';
 import { t } from '@/i18n';
-// Feature store (mirrors Get.find<ProductController>()). The Flutter screen uses
-// only mock data, but the store is wired up here for parity with the feature.
 import { useProductStore } from '@/features/categories/productStore';
-
-interface ProductOption {
-  name: string;
-  price: number;
-  selected: boolean;
-}
+import { useCartStore } from '@/features/cart/cartStore';
+import { useAuthStore } from '@/store/authStore';
+import { useNavArgs } from '@/store/navArgs';
+import { formatPrice } from '@/lib/currency';
+import { showSnack } from '@/lib/snack';
+import { ProductModel, ProductVariation } from '@/types/product';
 
 export default function ProductDetailsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const args = useNavArgs((s) => s.args);
 
-  // Store reference (kept for parity with the Flutter controller usage).
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const currentProduct = useProductStore((s) => s.currentProduct);
+  const isLoading = useProductStore((s) => s.isLoading);
 
-  // Mock data
-  const _productName = 'Cheese cake';
-  const _basePrice = 28.0;
-  const _description =
-    'Sweet Haven offers delicious homemade pastries, cakes, and beverages made with the finest ingredients. Perfect for every occasion.';
+  // Product comes via navArgs; if only an id is present, fetch it.
+  const argProduct = args.product as ProductModel | undefined;
+  const product: ProductModel | undefined = argProduct ?? currentProduct ?? undefined;
 
-  // Customization selections
-  const [options, setOptions] = useState<ProductOption[]>([
-    { name: 'Extra cream', price: 20.0, selected: false },
-    { name: 'Extra cream', price: 20.0, selected: false }, // Duplicate for visual matching
-    { name: 'Extra Chees', price: 2.0, selected: true },
-  ]);
+  useEffect(() => {
+    if (!argProduct && args.productId != null) {
+      useProductStore.getState().getProduct(args.productId as any);
+    }
+  }, [argProduct, args.productId]);
 
-  const toggleOption = (index: number) => {
-    setOptions((prev) =>
-      prev.map((o, i) => (i === index ? { ...o, selected: !o.selected } : o)),
-    );
-  };
+  const variations: ProductVariation[] = useMemo(
+    () => product?.variations ?? [],
+    [product],
+  );
+
+  const [selectedVariationId, setSelectedVariationId] = useState<
+    string | number | null
+  >(null);
+  const [qty, setQty] = useState(1);
+  const [favorite, setFavorite] = useState(false);
 
   const buildIndicator = (isActive: boolean, key: number) => (
     <View
@@ -65,13 +68,18 @@ export default function ProductDetailsScreen() {
     />
   );
 
-  const buildOptionTile = (option: ProductOption, index: number) => {
-    const isSelected = option.selected;
+  const buildOptionTile = (option: ProductVariation, index: number) => {
+    const isSelected = selectedVariationId === option.id;
+    const optionPrice = option.price ?? option.priceModifier ?? 0;
     return (
       <TouchableOpacity
-        key={index}
+        key={String(option.id ?? index)}
         activeOpacity={0.8}
-        onPress={() => toggleOption(index)}
+        onPress={() =>
+          setSelectedVariationId((prev) =>
+            prev === option.id ? null : (option.id ?? null),
+          )
+        }
       >
         <View
           style={[
@@ -88,18 +96,55 @@ export default function ProductDetailsScreen() {
           ]}
         >
           <BaseOptionText
-            text={option.name}
+            text={option.name ?? ''}
             color={isSelected ? AppColors.primaryColor : AppColors.textColorTheme}
             weight="500"
           />
           <BaseOptionText
-            text={`+ ${option.price} ${t('aed')}`}
+            text={`+ ${formatPrice(optionPrice)}`}
             color={isSelected ? AppColors.primaryColor : AppColors.textColor2}
             weight="600"
           />
         </View>
       </TouchableOpacity>
     );
+  };
+
+  if (!product) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={[styles.root, styles.center]}>
+          {isLoading ? (
+            <ActivityIndicator color={AppColors.primaryColor} />
+          ) : (
+            <BaseTextRaw
+              text={t('no_orders')}
+              style={{ color: AppColors.textColor2 }}
+            />
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const displayPrice = product.finalPrice ?? product.price ?? 0;
+
+  const onAddToCart = async () => {
+    // Cart is server-side and per-user, so a guest must sign in first.
+    if (!useAuthStore.getState().isLoggedIn) {
+      showSnack(t('login_required_to_order'), 'info');
+      router.push('/login');
+      return;
+    }
+    const ok = await useCartStore.getState().addItem({
+      product_id: product.id as any,
+      qty,
+      variation_id: (selectedVariationId ?? null) as any,
+    });
+    if (ok) {
+      showSnack(t('added_to_cart'), 'success');
+      router.back();
+    }
   };
 
   return (
@@ -112,24 +157,24 @@ export default function ProductDetailsScreen() {
           {/* Header Image (SliverAppBar expandedHeight 300.h) */}
           <View style={styles.headerImageWrap}>
             <Image
-              source={{ uri: 'https://via.placeholder.com/400x300' }}
+              source={{ uri: product.imageUrl || '' }}
               style={styles.headerImage}
               contentFit="cover"
             />
 
             {/* Leading back button */}
-            <View style={styles.leadingBtn}>
-              <TouchableOpacity onPress={() => router.back()}>
+            <View style={[styles.leadingBtn, { top: insets.top + h(8) }]}>
+              <TouchableOpacity hitSlop={8} onPress={() => router.back()}>
                 <Ionicons name="arrow-back" color={AppColors.white} size={sp(20)} />
               </TouchableOpacity>
             </View>
 
             {/* Action favorite button */}
-            <View style={styles.actionBtn}>
-              <TouchableOpacity onPress={() => {}}>
+            <View style={[styles.actionBtn, { top: insets.top + h(8) }]}>
+              <TouchableOpacity hitSlop={8} onPress={() => setFavorite((v) => !v)}>
                 <Ionicons
-                  name="heart-outline"
-                  color={AppColors.white}
+                  name={favorite ? 'heart' : 'heart-outline'}
+                  color={favorite ? AppColors.red : AppColors.white}
                   size={sp(20)}
                 />
               </TouchableOpacity>
@@ -151,7 +196,7 @@ export default function ProductDetailsScreen() {
             <View style={styles.nameRow}>
               <View style={{ flex: 1 }}>
                 <BaseTextRaw
-                  text={_productName}
+                  text={product.name ?? ''}
                   style={{
                     fontSize: sp(24),
                     fontWeight: 'bold',
@@ -160,7 +205,7 @@ export default function ProductDetailsScreen() {
                 />
               </View>
               <BaseTextRaw
-                text={`${t('aed')} ${_basePrice.toFixed(0)}`}
+                text={formatPrice(displayPrice)}
                 style={{
                   fontSize: sp(18),
                   fontWeight: 'bold',
@@ -171,29 +216,39 @@ export default function ProductDetailsScreen() {
             <View style={{ height: h(16) }} />
 
             {/* Description */}
-            <BaseTextRaw
-              text={_description}
-              style={{
-                fontSize: sp(14),
-                color: AppColors.textColor2,
-                lineHeight: sp(14) * 1.5,
-              }}
-            />
-            <View style={{ height: h(24) }} />
+            {!!product.description && (
+              <>
+                <BaseTextRaw
+                  text={product.description}
+                  style={{
+                    fontSize: sp(14),
+                    color: AppColors.textColor2,
+                    lineHeight: sp(14) * 1.5,
+                  }}
+                />
+                <View style={{ height: h(24) }} />
+              </>
+            )}
 
-            <View style={styles.divider} />
-            <View style={{ height: h(24) }} />
+            {variations.length > 0 && (
+              <>
+                <View style={styles.divider} />
+                <View style={{ height: h(24) }} />
 
-            {/* Options */}
-            {options.map((option, index) => buildOptionTile(option, index))}
+                {/* Options (variations) */}
+                {variations.map((option, index) =>
+                  buildOptionTile(option, index),
+                )}
 
-            <View style={{ height: h(32) }} />
+                <View style={{ height: h(32) }} />
+              </>
+            )}
 
             {/* Add to Cart Button (inline) */}
             <View style={{ alignItems: 'flex-end' }}>
               <TouchableOpacity
                 activeOpacity={0.85}
-                onPress={() => {}}
+                onPress={onAddToCart}
                 style={styles.addToCartBtn}
               >
                 <BaseTextRaw
@@ -207,14 +262,19 @@ export default function ProductDetailsScreen() {
               </TouchableOpacity>
             </View>
 
-            <View style={{ height: h(100) }} /> {/* Space for bottom bar */}
+            {/* Space for bottom bar */}
+            <View style={{ height: h(100) }} />
           </View>
         </ScrollView>
 
         {/* Bottom View Cart Bar */}
-        <View style={styles.bottomBar}>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          style={styles.bottomBar}
+          onPress={() => router.push('/(tabs)/cart')}
+        >
           <BaseTextRaw
-            text={`2 ${t('items')} • 85 ${t('aed')}`}
+            text={formatPrice(displayPrice * qty)}
             style={{
               color: AppColors.white,
               fontSize: sp(16),
@@ -229,7 +289,7 @@ export default function ProductDetailsScreen() {
               fontWeight: 'bold',
             }}
           />
-        </View>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -263,6 +323,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: AppColors.white,
   },
+  center: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerImageWrap: {
     height: h(300),
     width: '100%',
@@ -282,6 +346,8 @@ const styles = StyleSheet.create({
     height: w(36),
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 10,
+    elevation: 10,
   },
   actionBtn: {
     position: 'absolute',
@@ -294,6 +360,8 @@ const styles = StyleSheet.create({
     height: w(36),
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 10,
+    elevation: 10,
   },
   indicatorsRow: {
     position: 'absolute',

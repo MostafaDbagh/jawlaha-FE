@@ -1,13 +1,16 @@
 // Ported from Flutter:
 //   lib/screens/vendor/vendor_details_screen.dart  (VendorDetailsScreen)
-import React, { useState } from 'react';
+// Real backend data: branch (or vendor) via navArgs; subcategories + products from the store.
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   ScrollView,
   Pressable,
+  ActivityIndicator,
+  Share,
   StyleSheet,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -19,20 +22,90 @@ import {
   PopularItemCard,
   MenuListItemCard,
 } from '@/components/cards';
+import { navArgs, useNavArgs } from '@/store/navArgs';
+import { useBranchesStore } from '@/features/branches/branchesStore';
+import { useProductStore } from '@/features/categories/productStore';
+import { useCartStore } from '@/features/cart/cartStore';
+import { formatPrice } from '@/lib/currency';
+import { showSnack } from '@/lib/snack';
+import { BranchModel } from '@/types/branch';
+import { VendorModel } from '@/types/vendor';
+import { ProductModel } from '@/types/product';
 
 export default function VendorDetailsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const args = useNavArgs((s) => s.args);
 
-  // _menuCategories
-  const menuCategories: string[] = [
-    t('cakes'),
-    t('pastries'),
-    t('drinks'),
-    t('desserts'),
-  ];
+  const argBranch = args.branch as BranchModel | undefined;
+  const argVendor = args.vendor as VendorModel | undefined;
 
-  // late TabController _tabController; -> selected tab index state
+  const vendorBranches = useBranchesStore((s) => s.vendorBranches);
+  const subcategories = useProductStore((s) => s.subcategories);
+  const products = useProductStore((s) => s.products);
+  const isLoading = useProductStore((s) => s.isLoading);
+  const cartCount = useCartStore((s) => s.summary.items_count);
+
+  const [favorite, setFavorite] = useState(false);
+
+  const onShare = async () => {
+    try {
+      await Share.share({
+        message: `Check out ${argBranch?.name ?? argVendor?.name ?? 'this shop'} on Jawlah!`,
+      });
+    } catch {
+      // user dismissed / share unavailable
+    }
+  };
+
+  // Resolve the active branch: passed directly, or the first vendor branch.
+  const branch: BranchModel | undefined =
+    argBranch ?? (argVendor ? vendorBranches[0] : undefined);
+
+  // If only a vendor is passed, fetch its branches.
+  useEffect(() => {
+    if (!argBranch && argVendor?.id != null) {
+      useBranchesStore.getState().getVendorBranches(argVendor.id as any);
+    }
+  }, [argBranch, argVendor?.id]);
+
+  // Load subcategories (tabs) + products once a branch is known.
+  useEffect(() => {
+    if (branch?.id != null) {
+      useProductStore.getState().getBranchSubcategories(branch.id as any);
+      useProductStore.getState().getBranchProducts(branch.id as any);
+    }
+  }, [branch?.id]);
+
+  // Keep the bottom "view cart" count in sync.
+  useEffect(() => {
+    useCartStore.getState().loadCart();
+  }, []);
+
+  // selected tab index state
   const [tabIndex, setTabIndex] = useState(0);
+
+  // _menuCategories from backend subcategories.
+  const menuCategories: string[] = useMemo(
+    () => subcategories.map((s) => s.name ?? ''),
+    [subcategories],
+  );
+
+  // When a subcategory tab is selected, narrow the product list.
+  const onSelectTab = (index: number) => {
+    setTabIndex(index);
+    const sub = subcategories[index];
+    if (branch?.id != null && sub?.id != null) {
+      useProductStore
+        .getState()
+        .getSubcategoryProducts(branch.id as any, sub.id as any);
+    }
+  };
+
+  const openProduct = (product: ProductModel) => {
+    navArgs.set({ product, branch });
+    router.push('/product-details');
+  };
 
   const buildBadge = (text: string) => (
     <View style={styles.badge}>
@@ -42,6 +115,25 @@ export default function VendorDetailsScreen() {
       />
     </View>
   );
+
+  // Wait for a branch to resolve (e.g. vendor branches still loading).
+  if (!branch) {
+    return (
+      <SafeAreaView style={styles.scaffold} edges={['bottom']}>
+        <View style={[styles.scaffold, styles.center]}>
+          <ActivityIndicator color={AppColors.primaryColor} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const headerTitle = branch.name ?? argVendor?.name ?? '';
+  const ratingText = `${branch.rating ?? 0} (${branch.reviewsCount ?? 0}+ ${t(
+    'reviews',
+  )})`;
+  const deliveryTimeText = branch.deliveryTime ?? '';
+  const aboutText = argVendor?.description ?? branch.vendorName ?? '';
+  const popularProducts = products.slice(0, 3);
 
   return (
     // Scaffold(backgroundColor: AppColors.white)
@@ -57,7 +149,7 @@ export default function VendorDetailsScreen() {
           <View style={styles.sliverAppBar}>
             {/* flexibleSpace background */}
             <AppImage
-              source="https://via.placeholder.com/400x200"
+              source={branch.image ?? ''}
               width={undefined as unknown as number}
               height={h(200)}
               contentFit="cover"
@@ -73,9 +165,10 @@ export default function VendorDetailsScreen() {
               ]}
             />
             {/* leading (back) */}
-            <View style={styles.leadingWrap}>
+            <View style={[styles.leadingWrap, { top: insets.top + h(8) }]}>
               <Pressable
                 style={styles.circleBtn}
+                hitSlop={8}
                 onPress={() => router.back()}
               >
                 <Ionicons
@@ -86,18 +179,26 @@ export default function VendorDetailsScreen() {
               </Pressable>
             </View>
             {/* actions (favorite + share) */}
-            <View style={styles.actionsWrap}>
-              <Pressable style={styles.circleBtn} onPress={() => {}}>
+            <View style={[styles.actionsWrap, { top: insets.top + h(8) }]}>
+              <Pressable
+                style={styles.circleBtn}
+                hitSlop={8}
+                onPress={() => {
+                  setFavorite((v) => !v);
+                  showSnack(favorite ? t('removed_from_favorites') : t('added_to_favorites'), 'success');
+                }}
+              >
                 <Ionicons
-                  name="heart-outline"
-                  color={AppColors.black}
+                  name={favorite ? 'heart' : 'heart-outline'}
+                  color={favorite ? AppColors.red : AppColors.black}
                   size={sp(20)}
                 />
               </Pressable>
               <View style={{ width: w(8) }} />
               <Pressable
                 style={[styles.circleBtn, { marginRight: w(8) }]}
-                onPress={() => {}}
+                hitSlop={8}
+                onPress={onShare}
               >
                 <Ionicons
                   name="share-social"
@@ -117,7 +218,7 @@ export default function VendorDetailsScreen() {
             <View style={styles.headerInfoRow}>
               <View style={styles.logoCircle}>
                 <AppImage
-                  source="https://via.placeholder.com/100"
+                  source={argVendor?.logoUrl ?? branch.image ?? ''}
                   width={w(60)}
                   height={w(60)}
                   contentFit="cover"
@@ -128,7 +229,7 @@ export default function VendorDetailsScreen() {
               <View style={{ width: w(12) }} />
               <View style={{ flex: 1 }}>
                 <BaseText
-                  title="Sweet Haven"
+                  title={headerTitle}
                   style={{
                     fontSize: sp(20),
                     fontWeight: 'bold',
@@ -144,7 +245,7 @@ export default function VendorDetailsScreen() {
                   />
                   <View style={{ width: w(4) }} />
                   <BaseText
-                    title={`10:00 ${t('am')} - 12:00 ${t('am')}`}
+                    title={deliveryTimeText}
                     style={{ fontSize: sp(12), color: AppColors.textColor2 }}
                   />
                   <View style={{ flex: 1 }} />
@@ -154,7 +255,7 @@ export default function VendorDetailsScreen() {
                     color={AppColors.lightOrange}
                   />
                   <BaseText
-                    title={` 4.8 (420+ ${t('reviews')})`}
+                    title={` ${ratingText}`}
                     style={{
                       fontSize: sp(12),
                       color: AppColors.textColorTheme,
@@ -172,11 +273,9 @@ export default function VendorDetailsScreen() {
               showsHorizontalScrollIndicator={false}
             >
               <View style={{ flexDirection: 'row' }}>
-                {buildBadge(t('free_delivery'))}
-                <View style={{ width: w(8) }} />
-                {buildBadge(`20% ${t('off')}`)}
-                <View style={{ width: w(8) }} />
-                {buildBadge(t('halal'))}
+                {branch.freeDelivery && buildBadge(t('free_delivery'))}
+                {branch.freeDelivery && <View style={{ width: w(8) }} />}
+                {branch.isOpen && buildBadge(t('open_now'))}
               </View>
             </ScrollView>
             <View style={{ height: h(20) }} />
@@ -192,7 +291,7 @@ export default function VendorDetailsScreen() {
             />
             <View style={{ height: h(8) }} />
             <BaseText
-              title="Sweet Haven offers delicious homemade pastries, cakes, and beverages made with the finest ingredients. Perfect for every occasion."
+              title={aboutText}
               style={{ fontSize: sp(13), color: AppColors.textColor2 }}
             />
             <View style={{ height: h(16) }} />
@@ -201,7 +300,7 @@ export default function VendorDetailsScreen() {
             <View style={styles.locationCard}>
               <View style={styles.minimap}>
                 <AppImage
-                  source="https://via.placeholder.com/50x50"
+                  source={branch.image ?? ''}
                   width={w(40)}
                   height={w(40)}
                   contentFit="cover"
@@ -212,7 +311,9 @@ export default function VendorDetailsScreen() {
               <View style={{ width: w(12) }} />
               <View style={{ flex: 1 }}>
                 <BaseText
-                  title="Al Wahda Mall, Abu Dhabi"
+                  title={
+                    [branch.address, branch.city].filter(Boolean).join(', ')
+                  }
                   style={{ fontSize: sp(14), fontWeight: '500' }}
                 />
               </View>
@@ -244,7 +345,7 @@ export default function VendorDetailsScreen() {
                 />
                 <PromotionCard
                   title={`${t('free_delivery').toUpperCase()}`}
-                  description="On orders above 50 SAR"
+                  description={`On orders above ${formatPrice(50000)}`}
                   code="FREEDEL"
                   backgroundColor={AppColors.darkTeal}
                 />
@@ -259,8 +360,8 @@ export default function VendorDetailsScreen() {
                   const selected = index === tabIndex;
                   return (
                     <Pressable
-                      key={e}
-                      onPress={() => setTabIndex(index)}
+                      key={`${e}-${index}`}
+                      onPress={() => onSelectTab(index)}
                       style={styles.tab}
                     >
                       <BaseText
@@ -307,16 +408,14 @@ export default function VendorDetailsScreen() {
             <View style={{ height: h(16) }} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={{ flexDirection: 'row' }}>
-                {[0, 1, 2].map((index) => (
+                {popularProducts.map((product, index) => (
                   <PopularItemCard
-                    key={index}
-                    name={
-                      index === 0 ? 'Chocolate Strawb..' : 'Truffle Cake'
-                    }
-                    description="Chocolate & Strawberry mix cheese cake..."
-                    price={`32.00 ${t('sar')}`}
-                    imageUrl="https://via.placeholder.com/150"
-                    onAdd={() => {}}
+                    key={String(product.id ?? index)}
+                    name={product.name ?? ''}
+                    description={product.description ?? ''}
+                    price={formatPrice(product.finalPrice ?? product.price)}
+                    imageUrl={product.imageUrl ?? ''}
+                    onAdd={() => openProduct(product)}
                   />
                 ))}
               </View>
@@ -325,7 +424,7 @@ export default function VendorDetailsScreen() {
 
             {/* Category Header for List */}
             <BaseText
-              title={t('cakes')}
+              title={menuCategories[tabIndex] ?? t('most_popular')}
               style={{ fontSize: sp(18), fontWeight: 'bold' }}
             />
             <View style={{ height: h(16) }} />
@@ -333,19 +432,33 @@ export default function VendorDetailsScreen() {
 
           {/* SliverPadding + SliverList - Vertical List */}
           <View style={{ paddingHorizontal: w(16) }}>
-            {[0, 1, 2, 3, 4].map((index) => (
-              <MenuListItemCard
-                key={index}
-                name="Chocolate Truffle Cake"
-                description="Chocolate Truffle Cake, Mix with Egg, Chocolate Cubes..."
-                price={`${28.0 + index * 5} ${t('sar')}`}
-                imageUrl="https://via.placeholder.com/100"
-                onAdd={() => {}}
-                onPress={() => {
-                  router.push('/product-details');
+            {isLoading && products.length === 0 ? (
+              <ActivityIndicator
+                style={{ marginTop: h(20) }}
+                color={AppColors.primaryColor}
+              />
+            ) : products.length === 0 ? (
+              <BaseText
+                title={t('no_orders')}
+                style={{
+                  textAlign: 'center',
+                  marginTop: h(20),
+                  color: AppColors.textColor2,
                 }}
               />
-            ))}
+            ) : (
+              products.map((product, index) => (
+                <MenuListItemCard
+                  key={String(product.id ?? index)}
+                  name={product.name ?? ''}
+                  description={product.description ?? ''}
+                  price={formatPrice(product.finalPrice ?? product.price)}
+                  imageUrl={product.imageUrl ?? ''}
+                  onAdd={() => openProduct(product)}
+                  onPress={() => openProduct(product)}
+                />
+              ))
+            )}
           </View>
 
           {/* SliverToBoxAdapter - Space for bottom cart */}
@@ -354,9 +467,12 @@ export default function VendorDetailsScreen() {
 
         {/* Bottom Cart Button (Positioned) */}
         <View style={styles.bottomCartWrap}>
-          <View style={styles.bottomCart}>
+          <Pressable
+            style={({ pressed }) => [styles.bottomCart, pressed && { opacity: 0.9 }]}
+            onPress={() => router.push('/(tabs)/cart')}
+          >
             <BaseText
-              title={`2 ${t('items')} • 85 ${t('sar')}`}
+              title={`${cartCount} ${t('items')}`}
               style={{
                 color: AppColors.white,
                 fontSize: sp(16),
@@ -371,7 +487,7 @@ export default function VendorDetailsScreen() {
                 fontWeight: 'bold',
               }}
             />
-          </View>
+          </Pressable>
         </View>
       </View>
     </SafeAreaView>
@@ -382,6 +498,10 @@ const styles = StyleSheet.create({
   scaffold: {
     flex: 1,
     backgroundColor: AppColors.white,
+  },
+  center: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sliverAppBar: {
     height: h(200),
@@ -396,6 +516,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: h(8),
     left: w(8),
+    zIndex: 10,
+    elevation: 10,
   },
   actionsWrap: {
     position: 'absolute',
@@ -403,6 +525,8 @@ const styles = StyleSheet.create({
     right: w(8),
     flexDirection: 'row',
     alignItems: 'center',
+    zIndex: 10,
+    elevation: 10,
   },
   circleBtn: {
     width: w(40),

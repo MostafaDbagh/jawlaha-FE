@@ -37,13 +37,12 @@ export interface Country {
 }
 
 export function initCountry(num: string): Country {
-  // TODO: full country lookup table (mirrors CountryPickerUtils.getCountryByPhoneCode).
-  // Defaults to UAE ("971") which is the only seed value used by AuthState/clearFields.
+  // Jawlah targets Syria; default dial code is +963. [[jawlaha-cash-on-delivery-only]]
   return {
     phoneCode: num,
-    name: 'United Arab Emirates',
-    iso3Code: 'ARE',
-    isoCode: 'AE',
+    name: 'Syria',
+    iso3Code: 'SYR',
+    isoCode: 'SY',
   };
 }
 
@@ -56,10 +55,11 @@ function showServerMessages(messages: string[]) {
 
 interface AuthStoreState {
   // ---- AuthState fields (auth_state.dart) ----
-  countryCode: Country; // Rx<Country> countryCode = initCountry("971").obs
+  countryCode: Country; // Rx<Country> countryCode = initCountry("963").obs
   isLoading: boolean; // Rx<bool> isLoading = false.obs
   isLoginWithPhone: boolean; // Rx<bool> isLoginWithPhone = false.obs
   genderType: GenderType; // GenderType genderType = GenderType.male
+  lastDevOtp: string | null; // dev only: OTP returned by the backend to prefill
 
   // TextEditingControllers -> plain string fields
   email: string;
@@ -115,10 +115,11 @@ interface AuthStoreState {
 
 export const useAuthControllerStore = create<AuthStoreState>((set, get) => ({
   // ---- initial state (mirrors AuthState) ----
-  countryCode: initCountry('971'),
+  countryCode: initCountry('963'),
   isLoading: false,
   isLoginWithPhone: false,
   genderType: GenderType.male,
+  lastDevOtp: null,
 
   email: '',
   password: '',
@@ -282,6 +283,10 @@ export const useAuthControllerStore = create<AuthStoreState>((set, get) => ({
       set({ isLoading: true });
       const res = await repository.requestOtpLogin(phone);
       if (res.success) {
+        // Dev convenience: backend returns the OTP (and master code) so the
+        // verification screen can prefill it without a real SMS gateway.
+        const devOtp = (res.object as { devOtp?: string } | null)?.devOtp ?? null;
+        set({ lastDevOtp: devOtp });
         return true;
       } else {
         showServerMessages([res.msg]);
@@ -410,7 +415,7 @@ export const useAuthControllerStore = create<AuthStoreState>((set, get) => ({
   async clearFields() {
     set({
       genderType: GenderType.male,
-      countryCode: initCountry('971'),
+      countryCode: initCountry('963'),
       email: '',
       phoneNumber: '',
       fullName: '',

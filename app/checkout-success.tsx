@@ -8,9 +8,14 @@ import { useRouter } from 'expo-router';
 import { AppColors, w, h, r, sp, TextStyles } from '@/theme';
 import { t } from '@/i18n';
 import { BaseText } from '@/components';
+import { formatPrice } from '@/lib/currency';
+import { navArgs, useNavArgs } from '@/store/navArgs';
 
 export default function CheckoutSuccessScreen() {
   const router = useRouter();
+
+  const args = useNavArgs((s) => s.args);
+  const order = args?.order;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -36,19 +41,32 @@ export default function CheckoutSuccessScreen() {
         <View style={{ height: h(16) }} />
 
         {/* Subtitles */}
-        <BaseText
-          title={`${t('order_id')}: #JWL-2025-00123`} // Mock ID
-          style={{ fontSize: sp(16), color: AppColors.textColor2 }}
-        />
-        <View style={{ height: h(8) }} />
-        <View style={styles.arrivingRow}>
-          <MaterialIcons name="access-time" size={sp(18)} color={AppColors.textColor2} />
-          <View style={{ width: w(8) }} />
+        {order?.order_id ? (
           <BaseText
-            title={`${t('arriving_in')} 25-35 mins`}
+            title={`${t('order_id')}: #${order.order_id}`}
             style={{ fontSize: sp(16), color: AppColors.textColor2 }}
           />
-        </View>
+        ) : null}
+        <View style={{ height: h(8) }} />
+        {order?.total != null ? (
+          <BaseText
+            title={`${t('total')}: ${formatPrice(order.total)}`}
+            style={{ fontSize: sp(16), color: AppColors.textColor2 }}
+          />
+        ) : null}
+        {order?.eta_minutes != null ? (
+          <>
+            <View style={{ height: h(8) }} />
+            <View style={styles.arrivingRow}>
+              <MaterialIcons name="access-time" size={sp(18)} color={AppColors.textColor2} />
+              <View style={{ width: w(8) }} />
+              <BaseText
+                title={`${t('arriving_in')} ${order.eta_minutes} mins`}
+                style={{ fontSize: sp(16), color: AppColors.textColor2 }}
+              />
+            </View>
+          </>
+        ) : null}
 
         {/* const Spacer(flex: 3) */}
         <View style={{ flex: 3 }} />
@@ -59,7 +77,9 @@ export default function CheckoutSuccessScreen() {
           activeOpacity={0.8}
           style={styles.trackButton}
           onPress={() => {
-            // Get.find<NavigationController>().navigateInTab(Routes.trackingOrder);
+            if (order?.order_id) {
+              navArgs.set({ orderId: order.order_id });
+            }
             router.push('/tracking-order');
           }}
         >
@@ -79,10 +99,7 @@ export default function CheckoutSuccessScreen() {
           activeOpacity={0.8}
           style={styles.homeButton}
           onPress={() => {
-            // final nav = Get.find<NavigationController>();
-            // nav.popToFirstScreen();
-            // nav.changeTab(0);
-            router.push('/(tabs)');
+            router.replace('/(tabs)');
           }}
         >
           <View style={styles.buttonRow}>

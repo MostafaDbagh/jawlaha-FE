@@ -1,11 +1,11 @@
 // Ported from: lib/screens/home/order_details_screen.dart
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Pressable,
   ScrollView,
-  Image,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -13,16 +13,10 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 
 import { AppColors, w, h, r, sp } from '@/theme';
 import { t } from '@/i18n';
-import { BaseText } from '@/components';
-// Feature store (read per conventions); this screen renders static data like the Flutter source.
-import { useHomeStore } from '@/features/home/homeStore';
-
-// NOTE: Flutter used google_maps_flutter GoogleMap for the address preview.
-// Per migration conventions, render a simple map placeholder fallback.
-const _initialCameraPosition = {
-  target: { latitude: 25.2048, longitude: 55.2708 }, // Dubai
-  zoom: 13,
-};
+import { BaseText, AppImage } from '@/components';
+import { formatPrice } from '@/lib/currency';
+import { navArgs, useNavArgs } from '@/store/navArgs';
+import { useOrdersStore, type OrderItem } from '@/features/orders/ordersStore';
 
 function MapPlaceholder() {
   return (
@@ -36,10 +30,32 @@ function MapPlaceholder() {
   );
 }
 
-interface StoreItem {
-  name: string;
-  qty: string;
-  price: string;
+function statusLabel(status: string): string {
+  switch (status) {
+    case 'delivered':
+      return t('delivered');
+    case 'cancelled':
+      return t('cancelled');
+    case 'pending':
+      return t('pending');
+    case 'on_the_way':
+      return t('on_its_way');
+    default:
+      return status;
+  }
+}
+
+function formatDate(value?: string): string {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return value;
+  return d.toLocaleString('en', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 function StoreItemBlock({
@@ -47,7 +63,7 @@ function StoreItemBlock({
   items,
 }: {
   storeName: string;
-  items: StoreItem[];
+  items: OrderItem[];
 }) {
   return (
     <View style={{ alignItems: 'flex-start' }}>
@@ -71,20 +87,37 @@ function StoreItemBlock({
       <View style={styles.itemsContainer}>
         {items.map((item, idx) => (
           <View
-            key={idx}
+            key={item.product_id ?? idx}
             style={{
               flexDirection: 'row',
+              alignItems: 'center',
               justifyContent: 'space-between',
               marginBottom: h(8),
             }}
           >
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                flex: 1,
+              }}
+            >
+              <AppImage
+                source={item.image || ''}
+                width={r(36)}
+                height={r(36)}
+                borderRadius={r(8)}
+                style={styles.itemImage}
+              />
+              <View style={{ width: w(8) }} />
+              <BaseText
+                title={`${item.name} x${item.qty}`}
+                size={sp(14)}
+                color={AppColors.black}
+              />
+            </View>
             <BaseText
-              title={`${item.name} x${item.qty}`}
-              size={sp(14)}
-              color={AppColors.black}
-            />
-            <BaseText
-              title={`${t('aed')} ${item.price}`}
+              title={formatPrice(item.unit_price)}
               size={sp(14)}
               fontWeight="bold"
               color={AppColors.black}
@@ -127,11 +160,18 @@ function SummaryRow({
 
 export default function OrderDetailsScreen() {
   const router = useRouter();
+  const args = useNavArgs((s) => s.args);
+  const orderId = args?.orderId as string | undefined;
 
-  // Feature store available per conventions (screen content mirrors the static Flutter source).
-  // const order = useHomeStore((s) => s.currentOrder);
-  void useHomeStore;
-  void _initialCameraPosition;
+  const order = useOrdersStore((s) => s.currentOrder);
+  const isLoading = useOrdersStore((s) => s.isLoading);
+
+  useEffect(() => {
+    if (orderId) useOrdersStore.getState().loadOrder(orderId);
+  }, [orderId]);
+
+  const canTrack =
+    !!order && order.status !== 'delivered' && order.status !== 'cancelled';
 
   return (
     <SafeAreaView
@@ -145,176 +185,257 @@ export default function OrderDetailsScreen() {
         </Pressable>
       </View>
 
-      <ScrollView
-        contentContainerStyle={{
-          paddingHorizontal: w(16),
-          paddingVertical: h(8),
-        }}
-      >
-        <View style={{ alignItems: 'flex-start' }}>
-          {/* Header */}
-          <View style={styles.fullRowBetween}>
+      {isLoading && !order ? (
+        <View style={styles.centerFill}>
+          <ActivityIndicator color={AppColors.primaryColor} />
+        </View>
+      ) : !order ? (
+        <View style={styles.centerFill}>
+          <BaseText
+            title={t('no_orders')}
+            size={sp(14)}
+            color={AppColors.textColor2}
+            textAlign="center"
+          />
+        </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={{
+            paddingHorizontal: w(16),
+            paddingVertical: h(8),
+          }}
+        >
+          <View style={{ alignItems: 'flex-start' }}>
+            {/* Header */}
+            <View style={styles.fullRowBetween}>
+              <BaseText
+                title={`#${order.order_id}`}
+                size={sp(16)}
+                fontWeight="bold"
+                color={AppColors.black}
+              />
+              <BaseText
+                title={statusLabel(order.status)}
+                size={sp(14)}
+                fontWeight="500"
+                color={
+                  order.status === 'cancelled'
+                    ? AppColors.red
+                    : AppColors.primaryColor
+                }
+              />
+            </View>
+            <View style={{ height: h(4) }} />
             <BaseText
-              title="#JWL-2025-0098"
+              title={formatDate(order.created_at)}
+              size={sp(12)}
+              color={AppColors.textColor2}
+            />
+            <View style={{ height: h(24) }} />
+
+            {/* Stores & Items */}
+            <BaseText
+              title={t('stores_and_items')}
               size={sp(16)}
               fontWeight="bold"
               color={AppColors.black}
             />
+            <View style={{ height: h(16) }} />
+            <View style={{ alignSelf: 'stretch' }}>
+              <StoreItemBlock
+                storeName={order.vendor_name ?? ''}
+                items={order.items}
+              />
+            </View>
+            <View style={{ height: h(24) }} />
+
+            {/* Delivery Info */}
             <BaseText
-              title={t('delivered')}
-              size={sp(14)}
-              fontWeight="500"
-              color={AppColors.primaryColor}
+              title={t('delivery_info')}
+              size={sp(16)}
+              fontWeight="bold"
+              color={AppColors.black}
             />
-          </View>
-          <View style={{ height: h(4) }} />
-          <BaseText
-            title="Aug 10, 2025 - 7:45 PM"
-            size={sp(12)}
-            color={AppColors.textColor2}
-          />
-          <View style={{ height: h(24) }} />
-
-          {/* Stores & Items */}
-          <BaseText
-            title={t('stores_and_items')}
-            size={sp(16)}
-            fontWeight="bold"
-            color={AppColors.black}
-          />
-          <View style={{ height: h(16) }} />
-          <View style={{ alignSelf: 'stretch' }}>
-            <StoreItemBlock
-              storeName="Nova Sweets"
-              items={[{ name: 'Chocolate Cake', qty: '1', price: '35.00' }]}
-            />
-          </View>
-          <View style={{ height: h(16) }} />
-          <View style={{ alignSelf: 'stretch' }}>
-            <StoreItemBlock
-              storeName="Burger House"
-              items={[
-                { name: 'Classic Burger', qty: '1', price: '28.00' },
-                { name: 'Fries', qty: '1', price: '12.00' },
-              ]}
-            />
-          </View>
-          <View style={{ height: h(24) }} />
-
-          {/* Delivery Info */}
-          <BaseText
-            title={t('delivery_info')}
-            size={sp(16)}
-            fontWeight="bold"
-            color={AppColors.black}
-          />
-          <View style={{ height: h(12) }} />
-          <View style={styles.deliveryInfoCard}>
-            <Image
-              source={{ uri: 'https://i.pravatar.cc/150?img=11' }}
-              style={styles.avatar}
-            />
-            <View style={{ width: w(12) }} />
-            <View style={{ flex: 1 }}>
-              <View style={styles.fullRowBetween}>
-                <BaseText title="Ahmed M." size={sp(14)} fontWeight="bold" />
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <BaseText title="4.9" size={sp(12)} />
-                  <MaterialIcons
-                    name="star-border"
-                    size={sp(14)}
-                    color="orange"
-                  />
+            <View style={{ height: h(12) }} />
+            {order.driver ? (
+              <View style={styles.deliveryInfoCard}>
+                <AppImage
+                  source={order.driver.avatar || ''}
+                  width={r(40)}
+                  height={r(40)}
+                  borderRadius={r(20)}
+                  style={styles.avatar}
+                />
+                <View style={{ width: w(12) }} />
+                <View style={{ flex: 1 }}>
+                  <View style={styles.fullRowBetween}>
+                    <BaseText
+                      title={order.driver.name ?? ''}
+                      size={sp(14)}
+                      fontWeight="bold"
+                    />
+                    {!!order.driver.rating && (
+                      <View
+                        style={{ flexDirection: 'row', alignItems: 'center' }}
+                      >
+                        <BaseText title={order.driver.rating} size={sp(12)} />
+                        <MaterialIcons
+                          name="star-border"
+                          size={sp(14)}
+                          color="orange"
+                        />
+                      </View>
+                    )}
+                  </View>
+                  {!!order.driver.vehicle && (
+                    <BaseText
+                      title={order.driver.vehicle}
+                      size={sp(12)}
+                      color={AppColors.textColor2}
+                    />
+                  )}
                 </View>
               </View>
-              <BaseText
-                title={`${t('delivered_in')} 32 mins`}
-                size={sp(12)}
-                color={AppColors.primaryColor}
+            ) : null}
+
+            {/* Payment method + delivery preferences */}
+            <View style={styles.preferencesCard}>
+              <SummaryRow
+                title={t('payment_methods_label')}
+                value={t('cash_on_delivery')}
+              />
+              {order.leave_at_door ? (
+                <View style={styles.prefRow}>
+                  <MaterialIcons
+                    name="check-circle"
+                    size={sp(16)}
+                    color={AppColors.primaryColor}
+                  />
+                  <View style={{ width: w(8) }} />
+                  <BaseText
+                    title={t('leave_at_door')}
+                    size={sp(13)}
+                    color={AppColors.textColorTheme}
+                  />
+                </View>
+              ) : null}
+              {order.dont_ring_bell ? (
+                <View style={styles.prefRow}>
+                  <MaterialIcons
+                    name="check-circle"
+                    size={sp(16)}
+                    color={AppColors.primaryColor}
+                  />
+                  <View style={{ width: w(8) }} />
+                  <BaseText
+                    title={t('dont_ring_bell')}
+                    size={sp(13)}
+                    color={AppColors.textColorTheme}
+                  />
+                </View>
+              ) : null}
+            </View>
+            <View style={{ height: h(24) }} />
+
+            {/* Payment Summary */}
+            <BaseText
+              title={t('payment_summary')}
+              size={sp(16)}
+              fontWeight="bold"
+              color={AppColors.black}
+            />
+            <View style={{ height: h(12) }} />
+            <View style={styles.summaryCard}>
+              <SummaryRow
+                title={t('subtotal')}
+                value={formatPrice(order.subtotal)}
+              />
+              <View style={{ height: h(8) }} />
+              <SummaryRow
+                title={t('delivery_fee')}
+                value={formatPrice(order.delivery_fee)}
+              />
+              {order.discount > 0 ? (
+                <>
+                  <View style={{ height: h(8) }} />
+                  <SummaryRow
+                    title={t('discount')}
+                    value={`- ${formatPrice(order.discount)}`}
+                  />
+                </>
+              ) : null}
+              <View style={styles.divider} />
+              <SummaryRow
+                title={t('total')}
+                value={formatPrice(order.total)}
+                isBold
               />
             </View>
-          </View>
-          <View style={{ height: h(24) }} />
+            <View style={{ height: h(24) }} />
 
-          {/* Payment Summary */}
-          <BaseText
-            title={t('payment_summary')}
-            size={sp(16)}
-            fontWeight="bold"
-            color={AppColors.black}
-          />
-          <View style={{ height: h(12) }} />
-          <View style={styles.summaryCard}>
-            <SummaryRow title={t('subtotal')} value={`75.00 ${t('aed')}`} />
-            <View style={{ height: h(8) }} />
-            <SummaryRow
-              title={t('delivery_fee')}
-              value={`3.50 ${t('aed')}`}
-            />
-            <View style={styles.divider} />
-            <SummaryRow
-              title={t('total')}
-              value={`78.50 ${t('aed')}`}
-              isBold
-            />
-          </View>
-          <View style={{ height: h(24) }} />
-
-          {/* Delivery Address */}
-          <BaseText
-            title={t('delivery_address_label')}
-            size={sp(16)}
-            fontWeight="bold"
-            color={AppColors.black}
-          />
-          <View style={{ height: h(12) }} />
-          <View style={styles.addressCard}>
-            {/* Map Preview */}
-            <View style={styles.mapWrap}>
-              <MapPlaceholder />
-            </View>
-            <View style={{ padding: w(12) }}>
-              <BaseText
-                title="Home - Apartment 502, Building 7, Al Wasl District, Dubai"
-                size={sp(12)}
-                color={AppColors.black}
-              />
-            </View>
-          </View>
-          <View style={{ height: h(32) }} />
-
-          {/* Buttons */}
-          <Pressable
-            onPress={() => {}}
-            style={styles.primaryButton}
-          >
+            {/* Delivery Address */}
             <BaseText
-              title={t('order_again')}
+              title={t('delivery_address_label')}
               size={sp(16)}
-              color={AppColors.white}
               fontWeight="bold"
+              color={AppColors.black}
             />
-          </Pressable>
-          <View style={{ height: h(16) }} />
-          <View style={styles.helpRow}>
-            <BaseText
-              title={t('order_again')}
-              color={AppColors.primaryColor}
-              fontWeight="bold"
-              size={sp(16)}
-            />
-            {/* "Order Again" text as per image bottom? Or maybe 'Need Help'?
-                Assuming 'Order Again' text as per prompt/image text reading. */}
-            <View style={{ width: w(8) }} />
-            <MaterialIcons
-              name="help-outline"
-              color={AppColors.primaryColor}
-              size={sp(20)}
-            />
+            <View style={{ height: h(12) }} />
+            <View style={styles.addressCard}>
+              {/* Map Preview */}
+              <View style={styles.mapWrap}>
+                <MapPlaceholder />
+              </View>
+              <View style={{ padding: w(12) }}>
+                <BaseText
+                  title={order.delivery_address ?? ''}
+                  size={sp(12)}
+                  color={AppColors.black}
+                />
+                {!!order.delivery_note && (
+                  <>
+                    <View style={{ height: h(4) }} />
+                    <BaseText
+                      title={order.delivery_note}
+                      size={sp(12)}
+                      color={AppColors.textColor2}
+                    />
+                  </>
+                )}
+              </View>
+            </View>
+            <View style={{ height: h(32) }} />
+
+            {/* Buttons */}
+            {canTrack ? (
+              <Pressable
+                onPress={() => {
+                  navArgs.set({ orderId: order.order_id });
+                  router.push('/tracking-order');
+                }}
+                style={styles.primaryButton}
+              >
+                <BaseText
+                  title={t('track_your_order')}
+                  size={sp(16)}
+                  color={AppColors.white}
+                  fontWeight="bold"
+                />
+              </Pressable>
+            ) : (
+              <Pressable onPress={() => router.push('/(tabs)')} style={styles.primaryButton}>
+                <BaseText
+                  title={t('order_again')}
+                  size={sp(16)}
+                  color={AppColors.white}
+                  fontWeight="bold"
+                />
+              </Pressable>
+            )}
+            <View style={{ height: h(32) }} />
           </View>
-          <View style={{ height: h(32) }} />
-        </View>
-      </ScrollView>
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -326,6 +447,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: w(8),
     backgroundColor: AppColors.white,
+  },
+  centerFill: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: w(16),
   },
   fullRowBetween: {
     alignSelf: 'stretch',
@@ -347,6 +474,9 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.baserColor,
     borderRadius: r(8),
   },
+  itemImage: {
+    backgroundColor: AppColors.lightGreyV2,
+  },
   deliveryInfoCard: {
     alignSelf: 'stretch',
     flexDirection: 'row',
@@ -356,9 +486,19 @@ const styles = StyleSheet.create({
     borderRadius: r(12),
   },
   avatar: {
-    width: r(40),
-    height: r(40),
-    borderRadius: r(20),
+    backgroundColor: AppColors.lightGreyV2,
+  },
+  preferencesCard: {
+    alignSelf: 'stretch',
+    marginTop: h(12),
+    padding: w(16),
+    backgroundColor: AppColors.baserColor,
+    borderRadius: r(12),
+  },
+  prefRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: h(8),
   },
   summaryCard: {
     alignSelf: 'stretch',
@@ -396,11 +536,5 @@ const styles = StyleSheet.create({
     borderRadius: r(8),
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  helpRow: {
-    alignSelf: 'stretch',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 });

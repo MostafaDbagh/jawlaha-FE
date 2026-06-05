@@ -5,6 +5,7 @@ export { PopularItemCard } from './PopularItemCard';
 export { CategoryGridItem } from './CategoryGridItem';
 export { HomeBanner } from './HomeBanner';
 export { StoreCard } from './StoreCard';
+export { RestaurantRowCard } from './RestaurantRowCard';
 export { CategoryCard } from './CategoryCard';
 export { SectionHeader } from './SectionHeader';
 export { LocationHeader } from './LocationHeader';
