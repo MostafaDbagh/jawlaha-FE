@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { showSnack } from '@/lib/snack';
 
 import { AppColors, w, h, r, sp } from '@/theme';
+import { quicksand } from '@/theme/typography';
 import { t } from '@/i18n';
 import { BaseText } from '@/components';
 import { ProfileMenuItem } from '@/components/cards';
@@ -118,7 +119,7 @@ export default function ProfileScreen() {
             <ProfileMenuItem
               icon="location-outline"
               title={t('saved_addresses')}
-              onPress={() => router.push('/choose-location')}
+              onPress={() => router.push('/saved-addresses')}
             />
             <ProfileMenuItem
               icon="card-outline"
@@ -129,6 +130,11 @@ export default function ProfileScreen() {
               icon="heart-outline"
               title={t('favorites')}
               onPress={() => showSnack(t('coming_soon'), 'info')}
+            />
+            <ProfileMenuItem
+              icon="settings-outline"
+              title={t('settings')}
+              onPress={() => router.push('/settings')}
             />
             <ProfileMenuItem
               icon="notifications-outline"
@@ -270,7 +276,7 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontSize: sp(20),
-    fontWeight: 'bold',
+    fontFamily: quicksand('bold'),
     color: AppColors.textColorTheme,
   },
   membershipBadge: {
@@ -284,7 +290,7 @@ const styles = StyleSheet.create({
   },
   membershipText: {
     fontSize: sp(13),
-    fontWeight: '600',
+    fontFamily: quicksand('600'),
     color: AppColors.textColorTheme,
   },
   editButton: {
@@ -298,7 +304,7 @@ const styles = StyleSheet.create({
   },
   editButtonText: {
     fontSize: sp(15),
-    fontWeight: 'bold',
+    fontFamily: quicksand('bold'),
     color: AppColors.white,
   },
   menuCard: {
@@ -328,7 +334,7 @@ const styles = StyleSheet.create({
   },
   signOutText: {
     fontSize: sp(15),
-    fontWeight: '600',
+    fontFamily: quicksand('600'),
     color: AppColors.secondMainColor,
   },
 });

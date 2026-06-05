@@ -3,6 +3,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { w, h, r, sp } from '@/theme';
+import { quicksand } from '@/theme/typography';
 import { t } from '@/i18n';
 import { BaseText } from '@/components';
 
@@ -69,7 +70,7 @@ const styles = StyleSheet.create({
   titleText: {
     color: 'white',
     fontSize: sp(16),
-    fontWeight: 'bold',
+    fontFamily: quicksand('bold'),
   },
   descriptionText: {
     color: 'rgba(255,255,255,0.9)',
@@ -84,7 +85,7 @@ const styles = StyleSheet.create({
   codeText: {
     color: 'white',
     fontSize: sp(11),
-    fontWeight: '600',
+    fontFamily: quicksand('600'),
   },
 });
 

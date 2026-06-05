@@ -3,6 +3,7 @@ import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { AppColors, w, h, r, sp } from '@/theme';
+import { quicksand } from '@/theme/typography';
 import { AppImage, BaseText } from '@/components';
 
 export interface CartItemCardProps {
@@ -136,7 +137,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   name: {
-    fontWeight: 'bold',
+    fontFamily: quicksand('bold'),
     fontSize: sp(14),
   },
   description: {
@@ -144,7 +145,7 @@ const styles = StyleSheet.create({
     fontSize: sp(12),
   },
   price: {
-    fontWeight: 'bold',
+    fontFamily: quicksand('bold'),
     fontSize: sp(14),
     color: AppColors.textColorTheme,
   },
@@ -166,7 +167,7 @@ const styles = StyleSheet.create({
   },
   quantity: {
     fontSize: sp(14),
-    fontWeight: 'bold',
+    fontFamily: quicksand('bold'),
   },
 });
 

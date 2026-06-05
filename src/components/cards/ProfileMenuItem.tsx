@@ -3,6 +3,7 @@ import React from 'react';
 import { Pressable, View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AppColors, w, h, r, sp } from '@/theme';
+import { quicksand } from '@/theme/typography';
 import { BaseText } from '@/components';
 
 export interface ProfileMenuItemProps {
@@ -65,7 +66,7 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     fontSize: sp(15),
-    fontWeight: '500',
+    fontFamily: quicksand('500'),
     color: AppColors.textColorTheme,
   },
 });

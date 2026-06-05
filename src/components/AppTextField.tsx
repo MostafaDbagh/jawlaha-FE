@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { AppColors, sp, Radii } from '@/theme';
 import { Responsive } from '@/theme/responsive';
+import { QuicksandFamily, quicksand } from '@/theme/typography';
 import { BaseText } from './BaseText';
 
 export type BorderStyleType = 'outlineInput' | 'underline' | 'none';
@@ -102,7 +103,7 @@ export function AppTextField(props: AppTextFieldProps) {
       {label != null && (
         <BaseText
           title={label}
-          style={[{ color: AppColors.primaryColorTheme, fontSize: sp(16), fontWeight: '400' }]}
+          style={[{ color: AppColors.primaryColorTheme, fontSize: sp(16), fontFamily: quicksand('400') }]}
         />
       )}
       <View
@@ -153,6 +154,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: Responsive.paddingTiny,
     fontSize: sp(14),
+    fontFamily: QuicksandFamily.regular,
     color: AppColors.textColorTheme,
   },
   affix: {

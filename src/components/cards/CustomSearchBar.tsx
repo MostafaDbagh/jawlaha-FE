@@ -3,6 +3,7 @@ import React from 'react';
 import { View, TextInput, Pressable, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { AppColors, w, h, r } from '@/theme';
+import { QuicksandFamily } from '@/theme/typography';
 
 export interface CustomSearchBarProps {
   readOnly?: boolean;
@@ -10,10 +11,11 @@ export interface CustomSearchBarProps {
   onSubmitted?: (value: string) => void;
   value?: string;
   onChangeText?: (value: string) => void;
+  onTune?: () => void;
 }
 
 export function CustomSearchBar(props: CustomSearchBarProps) {
-  const { readOnly = false, onPress, onSubmitted, value, onChangeText } = props;
+  const { readOnly = false, onPress, onSubmitted, value, onChangeText, onTune } = props;
 
   return (
     <Pressable onPress={onPress}>
@@ -36,10 +38,20 @@ export function CustomSearchBar(props: CustomSearchBarProps) {
             </View>
           </View>
         </View>
-        <View style={{ width: w(12) }} />
-        <View style={styles.tuneContainer}>
-          <MaterialIcons name="tune" size={r(24)} color={AppColors.textColorTheme} />
-        </View>
+        {/* Filter/tune button only renders when a handler is supplied, so the
+            search field expands to full width on screens that don't need it. */}
+        {onTune && (
+          <>
+            <View style={{ width: w(12) }} />
+            <Pressable
+              style={styles.tuneContainer}
+              onPress={onTune}
+              hitSlop={8}
+            >
+              <MaterialIcons name="tune" size={r(24)} color={AppColors.textColorTheme} />
+            </Pressable>
+          </>
+        )}
       </View>
     </Pressable>
   );
@@ -64,6 +76,7 @@ const styles = StyleSheet.create({
   },
   input: {
     padding: 0,
+    fontFamily: QuicksandFamily.regular,
     color: AppColors.textColorTheme,
   },
   tuneContainer: {

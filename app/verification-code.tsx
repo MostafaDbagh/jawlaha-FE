@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { AppColors, w, h, TextStyles } from '@/theme';
+import { QuicksandFamily } from '@/theme/typography';
 import { Responsive } from '@/theme/responsive';
 import { t } from '@/i18n';
 import { BaseText, TextButton, LoadingButton, AppBar } from '@/components';
@@ -176,6 +177,7 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.white,
     textAlign: 'center',
     fontSize: 22,
+    fontFamily: QuicksandFamily.medium,
     color: AppColors.textColorTheme,
   },
   resendRow: {

@@ -6,6 +6,7 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { AppColors, w, h, r, sp, TextStyles } from '@/theme';
+import { quicksand } from '@/theme/typography';
 import { t } from '@/i18n';
 import { BaseText } from '@/components';
 import { formatPrice } from '@/lib/currency';
@@ -35,7 +36,7 @@ export default function CheckoutSuccessScreen() {
           textAlign="center"
           style={[
             TextStyles.bodyLarge,
-            { fontSize: sp(22), fontWeight: 'bold', color: AppColors.black },
+            { fontSize: sp(22), fontFamily: quicksand('bold'), color: AppColors.black },
           ]}
         />
         <View style={{ height: h(16) }} />
@@ -88,7 +89,7 @@ export default function CheckoutSuccessScreen() {
             <View style={{ width: w(8) }} />
             <BaseText
               title={t('track_your_order')}
-              style={{ fontSize: sp(16), fontWeight: '600', color: AppColors.white }}
+              style={{ fontSize: sp(16), fontFamily: quicksand('600'), color: AppColors.white }}
             />
           </View>
         </TouchableOpacity>
@@ -107,7 +108,7 @@ export default function CheckoutSuccessScreen() {
             <View style={{ width: w(8) }} />
             <BaseText
               title={t('back_to_home')}
-              style={{ fontSize: sp(16), fontWeight: '600', color: AppColors.primaryColor }}
+              style={{ fontSize: sp(16), fontFamily: quicksand('600'), color: AppColors.primaryColor }}
             />
           </View>
         </TouchableOpacity>

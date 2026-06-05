@@ -19,12 +19,19 @@ export interface CartSummary {
   subtotal: number;
 }
 
+// `reset` is true when the backend cleared a previous restaurant's cart because
+// this item came from a different branch (single-restaurant cart rule).
+export interface AddItemResult {
+  ok: boolean;
+  reset: boolean;
+}
+
 interface CartState {
   items: CartItem[];
   summary: CartSummary;
   isLoading: boolean;
   loadCart: () => Promise<void>;
-  addItem: (args: { product_id: string; qty?: number; variation_id?: string | null; options?: any }) => Promise<boolean>;
+  addItem: (args: { product_id: string; qty?: number; variation_id?: string | null; options?: any }) => Promise<AddItemResult>;
   updateItem: (productId: string, qty: number) => Promise<void>;
   removeItem: (productId: string) => Promise<void>;
   clear: () => Promise<void>;
@@ -34,8 +41,31 @@ function applyCart(set: any, cart: any) {
   if (!cart) return;
   set({
     items: cart.items ?? [],
-    summary: cart.summary ?? { items_count: 0, subtotal: 0 },
+    summary: cart.summary ?? computeSummary(cart.items ?? []),
   });
+}
+
+// Local mirror of Cart.getSummary() on the backend — lets the UI update
+// instantly (optimistically) before the server round-trip completes.
+function computeSummary(items: CartItem[]): CartSummary {
+  return items.reduce(
+    (acc, it) => {
+      const optionsTotal = Array.isArray(it.options)
+        ? it.options.reduce((s: number, o: any) => s + (Number(o?.price) || 0), 0)
+        : 0;
+      const qty = Number(it.qty) || 0;
+      acc.items_count += qty;
+      acc.subtotal += (Number(it.unit_price) + optionsTotal) * qty;
+      return acc;
+    },
+    { items_count: 0, subtotal: 0 } as CartSummary,
+  );
+}
+
+// Cart-mutation endpoints (PATCH/DELETE) echo back the full updated cart in
+// the response envelope's `data`, so we can reconcile without a second fetch.
+function cartFromResponse(res: any): any {
+  return res?.object?.data ?? null;
 }
 
 export const useCartStore = create<CartState>((set, get) => ({
@@ -60,23 +90,48 @@ export const useCartStore = create<CartState>((set, get) => ({
       const res = await ordersRepo.addCartItem(args);
       if (res.success) {
         applyCart(set, res.object);
-        return true;
+        return { ok: true, reset: !!(res.object as any)?.cart_reset };
       }
       showSnack(res.msg || 'Failed to add to cart', 'error');
     } catch (e) {
       showSnack(String(e), 'error');
     }
-    return false;
+    return { ok: false, reset: false };
   },
 
   async updateItem(productId, qty) {
+    // qty 0 (or less) means "remove the line" — keep that intent explicit.
+    if (qty <= 0) return get().removeItem(productId);
+
+    // Optimistic update so the stepper responds instantly; roll back on failure.
+    const prev = get().items;
+    const next = prev.map((it) =>
+      it.product_id === productId ? { ...it, qty } : it,
+    );
+    set({ items: next, summary: computeSummary(next) });
+
     const res = await ordersRepo.updateCartItem(productId, qty);
-    if (res.success) await get().loadCart();
+    if (res.success) {
+      // Reconcile with the authoritative cart echoed back by the server.
+      applyCart(set, cartFromResponse(res));
+    } else {
+      set({ items: prev, summary: computeSummary(prev) });
+      showSnack(res.msg || 'Failed to update cart', 'error');
+    }
   },
 
   async removeItem(productId) {
+    const prev = get().items;
+    const next = prev.filter((it) => it.product_id !== productId);
+    set({ items: next, summary: computeSummary(next) });
+
     const res = await ordersRepo.removeCartItem(productId);
-    if (res.success) await get().loadCart();
+    if (res.success) {
+      applyCart(set, cartFromResponse(res));
+    } else {
+      set({ items: prev, summary: computeSummary(prev) });
+      showSnack(res.msg || 'Failed to remove item', 'error');
+    }
   },
 
   async clear() {

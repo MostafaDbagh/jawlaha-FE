@@ -96,7 +96,13 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
       const res = await ordersRepo.createOrder(args);
       if (res.success) {
         const order = res.object as Order;
-        set({ currentOrder: order });
+        // Surface the new order in history immediately (newest first) so the
+        // user sees it without waiting for a refetch.
+        set((state) => ({
+          currentOrder: order,
+          orders: [order, ...state.orders],
+          totalOrders: state.totalOrders + 1,
+        }));
         return order;
       }
       showSnack(res.msg || 'Failed to place order', 'error');

@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { BaseText } from '@/components';
 import { t } from '@/i18n';
 import { AppColors, h, r, sp, w } from '@/theme';
+import { QuicksandFamily, quicksand } from '@/theme/typography';
 
 export interface PromoCodeInputProps {
   value?: string;
@@ -74,6 +75,7 @@ const styles = StyleSheet.create({
   input: {
     padding: 0,
     fontSize: sp(14),
+    fontFamily: QuicksandFamily.regular,
     color: AppColors.textColor2,
   },
   applyButton: {
@@ -88,11 +90,11 @@ const styles = StyleSheet.create({
   applyText: {
     color: AppColors.white,
     fontSize: sp(14),
-    fontWeight: 'bold',
+    fontFamily: quicksand('bold'),
   },
   appliedMessage: {
     color: AppColors.green,
     fontSize: sp(12),
-    fontWeight: '500',
+    fontFamily: quicksand('500'),
   },
 });

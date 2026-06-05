@@ -1,5 +1,5 @@
 // Ported from: lib/screens/home/order_history_screen.dart
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   ScrollView,
@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { AppColors, w, h, r, sp } from '@/theme';
 import { BaseText } from '@/components';
 import { t } from '@/i18n';
@@ -22,24 +22,28 @@ import { useOrdersStore, type Order } from '@/features/orders/ordersStore';
 const IN_PROGRESS_STATUSES = ['pending', 'preparing', 'ready', 'on_the_way'];
 
 // Map a backend status value to a display label, falling back to the raw value.
+// Active statuses collapse into a single "In Progress…" label like the design.
 function statusLabel(status: string): string {
-  switch (status) {
-    case 'delivered':
-      return t('delivered');
-    case 'cancelled':
-      return t('cancelled');
-    case 'pending':
-      return t('pending');
-    case 'on_the_way':
-      return t('on_its_way');
-    default:
-      return status;
-  }
+  if (status === 'delivered') return t('delivered');
+  if (status === 'cancelled') return t('cancelled');
+  if (IN_PROGRESS_STATUSES.includes(status)) return t('in_progress_status');
+  return status;
 }
 
+// Status colors per the design: teal=delivered, orange=in-progress, red=cancelled.
 function statusColor(status: string): string {
   if (status === 'cancelled') return AppColors.red ?? '#E53935';
+  if (IN_PROGRESS_STATUSES.includes(status)) return AppColors.orange;
   return AppColors.primaryColor;
+}
+
+// Backend order ids are long UUIDs; show a compact upper-cased prefix so the
+// header stays on one line next to the status (the design uses short ids).
+function formatOrderId(id: string): string {
+  if (id.length > 12 && id.includes('-')) {
+    return id.split('-')[0].toUpperCase();
+  }
+  return id;
 }
 
 function formatDate(value?: string): string {
@@ -70,10 +74,16 @@ export default function OrderHistoryScreen() {
     'Cancelled',
   ];
 
-  // Initial load.
-  useEffect(() => {
-    useOrdersStore.getState().loadOrders();
-  }, []);
+  // Reload on every focus so a freshly placed order (and any status changes)
+  // are reflected, not just on the first mount.
+  useFocusEffect(
+    useCallback(() => {
+      const load = useOrdersStore.getState().loadOrders;
+      if (selectedFilter === 'Delivered') load('delivered');
+      else if (selectedFilter === 'Cancelled') load('cancelled');
+      else load();
+    }, [selectedFilter]),
+  );
 
   const onSelectFilter = (filter: string) => {
     setSelectedFilter(filter);
@@ -153,10 +163,12 @@ export default function OrderHistoryScreen() {
           </View>
         </View>
 
-        {/* Filters Row */}
+        {/* Filters Row — flexGrow:0 stops a horizontal ScrollView from stretching
+            to fill the column's vertical space (which left a big gap). */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          style={styles.filtersScroll}
           contentContainerStyle={styles.filtersContent}
         >
           {filters.map((filter) => {
@@ -188,41 +200,6 @@ export default function OrderHistoryScreen() {
             );
           })}
         </ScrollView>
-
-        {/* Date/Sort Row */}
-        <View style={styles.dateSortPadding}>
-          <View style={styles.dateSortRow}>
-            <View style={styles.dropdownBox}>
-              <View style={styles.rowBetween}>
-                <BaseText
-                  title={t('date_range')}
-                  size={sp(14)}
-                  color={AppColors.textColorTheme}
-                />
-                <MaterialIcons
-                  name="keyboard-arrow-down"
-                  size={sp(18)}
-                  color={AppColors.textColorTheme}
-                />
-              </View>
-            </View>
-            <View style={{ width: w(16) }} />
-            <View style={styles.dropdownBox}>
-              <View style={styles.rowBetween}>
-                <BaseText
-                  title={`${t('sort_by')}: ${t('recent')}`}
-                  size={sp(14)}
-                  color={AppColors.textColorTheme}
-                />
-                <MaterialIcons
-                  name="keyboard-arrow-down"
-                  size={sp(18)}
-                  color={AppColors.textColorTheme}
-                />
-              </View>
-            </View>
-          </View>
-        </View>
 
         {/* List */}
         {isLoading && orders.length === 0 ? (
@@ -259,12 +236,16 @@ export default function OrderHistoryScreen() {
                   <Pressable style={styles.orderCard} onPress={openDetails}>
                     {/* Header */}
                     <View style={styles.rowBetween}>
-                      <BaseText
-                        title={`#${order.order_id}`}
-                        size={sp(14)}
-                        fontWeight="bold"
-                        color={AppColors.black}
-                      />
+                      <View style={styles.orderIdWrap}>
+                        <BaseText
+                          title={`#${formatOrderId(order.order_id)}`}
+                          size={sp(14)}
+                          fontWeight="bold"
+                          color={AppColors.black}
+                          numberOfLines={1}
+                        />
+                      </View>
+                      <View style={{ width: w(8) }} />
                       <BaseText
                         title={statusLabel(order.status)}
                         size={sp(14)}
@@ -312,7 +293,7 @@ export default function OrderHistoryScreen() {
                         style={styles.cardButton}
                       >
                         <BaseText
-                          title={canTrack ? t('track_your_order') : t('view_details')}
+                          title={canTrack ? t('track_order') : t('view_details')}
                           size={sp(12)}
                           fontWeight="600"
                           color={AppColors.white}
@@ -357,6 +338,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  filtersScroll: {
+    flexGrow: 0,
+  },
   filtersContent: {
     paddingHorizontal: w(16),
     paddingVertical: h(8),
@@ -370,24 +354,13 @@ const styles = StyleSheet.create({
     paddingVertical: h(8),
     borderRadius: r(20),
   },
-  dateSortPadding: {
-    paddingHorizontal: w(16),
-    paddingVertical: h(8),
-  },
-  dateSortRow: {
-    flexDirection: 'row',
-  },
-  dropdownBox: {
-    flex: 1,
-    paddingHorizontal: w(12),
-    paddingVertical: h(10),
-    backgroundColor: AppColors.baserColor,
-    borderRadius: r(8),
-  },
   rowBetween: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  orderIdWrap: {
+    flexShrink: 1,
   },
   centerFill: {
     flex: 1,

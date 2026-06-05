@@ -1,6 +1,6 @@
 // Ported from data/http_helper.dart (auth requests) + data/repository.dart (auth side-effects).
 // Mirrors HttpHelper auth endpoints and Repository auth-response wrappers.
-import { apiClient, CustomResponse, API } from '@/lib/api';
+import { apiClient, CustomResponse, API, setTokenRefresher } from '@/lib/api';
 import {
   AuthModel,
   parseAuthModel,
@@ -355,6 +355,17 @@ export async function refreshToken(): Promise<CustomResponse> {
   }
   return data;
 }
+
+// Let the API client transparently refresh an expired access token on a 401.
+// Registered here (not in the client) to keep the low-level client free of an
+// auth-store dependency. Returns true only when a usable token is now stored.
+setTokenRefresher(async () => {
+  const hasRefresh =
+    !!useAuthStore.getState().refreshToken || !!(await secureStorage.getRefreshToken());
+  if (!hasRefresh) return false;
+  const res = await refreshToken();
+  return res.success && !!useAuthStore.getState().token;
+});
 
 export async function resendOtp(email: string): Promise<CustomResponse> {
   return await apiClient.postV2({

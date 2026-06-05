@@ -14,6 +14,18 @@ export const hydrateAuthToken = async () => {
   return inMemoryToken;
 };
 
+// Optional hook that refreshes the access token (registered by the auth layer
+// to avoid a circular import). Returns true if a new token is now in place.
+// Access tokens are short-lived (~15m), so without this every authenticated
+// request silently 401s once the token expires.
+type TokenRefresher = () => Promise<boolean>;
+let tokenRefresher: TokenRefresher | null = null;
+export const setTokenRefresher = (fn: TokenRefresher | null) => {
+  tokenRefresher = fn;
+};
+// Guard so concurrent 401s trigger a single refresh, not a stampede.
+let refreshInFlight: Promise<boolean> | null = null;
+
 export interface BaseEnvelope {
   status?: boolean;
   /** jawlahapp sends the human-readable text as `message` (singular). */
@@ -77,13 +89,42 @@ function networkError(): CustomResponse {
   return new CustomResponse(-1, [], 'server_error', false);
 }
 
+// Single fetch entry point. For authenticated requests, a 401 triggers one
+// token refresh (shared across concurrent callers) and a single retry with the
+// freshly-stored token, so a merely-expired access token self-heals instead of
+// surfacing as a failure.
+async function performFetch(
+  method: string,
+  target: string,
+  needToken: boolean,
+  token: string | undefined,
+  body: string | undefined,
+): Promise<Response> {
+  const send = () =>
+    fetch(target, { method, headers: buildHeaders(needToken, token), body });
+
+  let res = await send();
+  if (res.status === 401 && needToken && tokenRefresher) {
+    if (!refreshInFlight) {
+      refreshInFlight = tokenRefresher().finally(() => {
+        refreshInFlight = null;
+      });
+    }
+    const refreshed = await refreshInFlight;
+    // Retry with the new token only when no explicit token was pinned by the
+    // caller (buildHeaders falls back to the refreshed in-memory token).
+    if (refreshed && token == null) res = await send();
+  }
+  return res;
+}
+
 export const apiClient = {
   /** Plain GET — returns raw envelope data (mirrors DioSetting.get). */
   async get(opts: BaseOpts): Promise<CustomResponse> {
     const { subUrl, url, token, needToken = false, query } = opts;
     try {
       const target = withQuery(url ? `${url}/${subUrl}` : apiUrl(subUrl), query);
-      const res = await fetch(target, { method: 'GET', headers: buildHeaders(needToken, token) });
+      const res = await performFetch('GET', target, needToken, token, undefined);
       const text = await res.text();
       let data: any = text;
       try { data = JSON.parse(text); } catch { /* keep text */ }
@@ -100,7 +141,7 @@ export const apiClient = {
     const { subUrl, url, token, needToken = false, query, fromJson, isListOfModel } = opts;
     try {
       const target = withQuery(url ? `${url}/${subUrl}` : apiUrl(subUrl), query);
-      const res = await fetch(target, { method: 'GET', headers: buildHeaders(needToken, token) });
+      const res = await performFetch('GET', target, needToken, token, undefined);
       const env = await parseEnvelope(res);
       if (env.status == null || !env.status) {
         return new CustomResponse(res.status, '' as any, env.messages, false);
@@ -126,7 +167,7 @@ export const apiClient = {
     const { subUrl, url, token, needToken = false, query, fromJson } = opts;
     try {
       const target = withQuery(url ? `${url}/${subUrl}` : apiUrl(subUrl), query);
-      const res = await fetch(target, { method: 'GET', headers: buildHeaders(needToken, token) });
+      const res = await performFetch('GET', target, needToken, token, undefined);
       const env = await parseEnvelope(res);
       if (env.status == null || !env.status) {
         return new CustomResponse(res.status, '', env.messages, false);
@@ -157,14 +198,22 @@ export const apiClient = {
     const { subUrl, url, token, needToken = false, query, data, fromJson, isListOfModel } = opts;
     try {
       const target = withQuery(url ? `${url}/${subUrl}` : apiUrl(subUrl), query);
-      const res = await fetch(target, {
-        method: 'POST',
-        headers: buildHeaders(needToken, token),
-        body: data != null ? JSON.stringify(data) : undefined,
-      });
+      const res = await performFetch(
+        'POST',
+        target,
+        needToken,
+        token,
+        data != null ? JSON.stringify(data) : undefined,
+      );
       const env = await parseEnvelope(res);
       if (!fromJson) {
         return new CustomResponse(res.status, env, env.messages, env.status ?? res.ok);
+      }
+      // Honor the envelope's status flag like getV2 does. Without this an error
+      // response (e.g. a 401 with `success:false`) was reported as success, so
+      // callers fired success UI while the parsed object was empty.
+      if (env.status == null || !env.status) {
+        return new CustomResponse(res.status, '' as any, env.messages, false);
       }
       if (isListOfModel) {
         const list = ((env.data as any[]) ?? []).map((e) => fromJson(e));
@@ -196,11 +245,13 @@ export const apiClient = {
     const { subUrl, url, token, needToken = false, query, data } = opts;
     try {
       const target = withQuery(url ? `${url}/${subUrl}` : apiUrl(subUrl), query);
-      const res = await fetch(target, {
+      const res = await performFetch(
         method,
-        headers: buildHeaders(needToken, token),
-        body: data != null ? JSON.stringify(data) : undefined,
-      });
+        target,
+        needToken,
+        token,
+        data != null ? JSON.stringify(data) : undefined,
+      );
       const env = await parseEnvelope(res);
       return new CustomResponse(res.status, env, env.messages, env.status ?? res.ok);
     } catch {

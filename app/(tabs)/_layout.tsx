@@ -25,32 +25,25 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="categories"
+        name="orders"
         options={{
-          title: t('categories'),
+          title: t('orders'),
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'grid' : 'grid-outline'} size={24} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="cart"
-        options={{
-          title: t('cart'),
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'cart' : 'cart-outline'} size={24} color={color} />
+            <Ionicons name={focused ? 'receipt' : 'receipt-outline'} size={24} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: t('profile'),
+          title: t('account'),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'person' : 'person-outline'} size={24} color={color} />
           ),
         }}
       />
+      {/* Cart route stays reachable (home/checkout link to it) but is hidden from the tab bar. */}
+      <Tabs.Screen name="cart" options={{ href: null }} />
     </Tabs>
   );
 }

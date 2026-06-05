@@ -4,6 +4,7 @@ import { View, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { MaterialIcons } from '@expo/vector-icons';
 import { AppColors, w, h, r, sp } from '@/theme';
+import { quicksand } from '@/theme/typography';
 import { BaseText } from '@/components';
 import { t } from '@/i18n';
 
@@ -180,7 +181,7 @@ const styles = StyleSheet.create({
   nameText: {
     flex: 1,
     fontSize: sp(18),
-    fontWeight: 'bold',
+    fontFamily: quicksand('bold'),
     color: AppColors.textColorTheme,
   },
   ratingRow: {
@@ -189,7 +190,7 @@ const styles = StyleSheet.create({
   },
   ratingValue: {
     fontSize: sp(14),
-    fontWeight: 'bold',
+    fontFamily: quicksand('bold'),
     color: AppColors.textColorTheme,
   },
   reviewCount: {
@@ -210,7 +211,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: sp(12),
     color: AppColors.darkTeal,
-    fontWeight: '500',
+    fontFamily: quicksand('500'),
   },
   button: {
     width: '100%',
@@ -225,7 +226,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: sp(16),
-    fontWeight: '600',
+    fontFamily: quicksand('600'),
     color: AppColors.white,
   },
 });

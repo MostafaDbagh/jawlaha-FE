@@ -12,28 +12,59 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { AppColors, w, h, r, sp } from '@/theme';
+import { QuicksandFamily, quicksand } from '@/theme/typography';
 import { t } from '@/i18n';
 import { BaseText } from '@/components';
+import { showSnack } from '@/lib/snack';
+import { goBack } from '@/lib/nav';
 import { useNavArgs } from '@/store/navArgs';
+import { useAddressStore, type AddressIcon } from '@/features/addresses/addressStore';
 
-// const _initialPosition = {
-//   target: { latitude: 25.1972, longitude: 55.2744 }, // Dubai Downtown
-//   zoom: 14.4746,
-// };
+// Pick a list icon from the address name so Home/Work get the right glyph.
+function iconForName(name: string): AddressIcon {
+  const n = name.trim().toLowerCase();
+  if (n.includes('home') || n.includes('منزل')) return 'home';
+  if (n.includes('work') || n.includes('office') || n.includes('عمل')) return 'work';
+  return 'other';
+}
 
 export default function AddAddressScreen() {
   const router = useRouter();
   const isEdit: boolean = useNavArgs((s) => s.args.isEdit) ?? false;
-
-  // Default values if editing could be loaded here
-  const [name, setName] = useState<string>(isEdit ? 'Home' : '');
-  const [building, setBuilding] = useState<string>(
-    isEdit ? 'Apartment 503, Al Nakheel Tower' : '',
+  const addressId: string | undefined = useNavArgs((s) => s.args.addressId);
+  const existing = useAddressStore((s) =>
+    addressId ? s.addresses.find((a) => a.id === addressId) : undefined,
   );
-  const [street, setStreet] = useState<string>(isEdit ? 'Sheikh Zayed Road' : '');
-  const [city, setCity] = useState<string>(isEdit ? 'Dubai, UAE' : '');
-  const [entrance, setEntrance] = useState<string>(isEdit ? 'Main gate' : '');
+
+  // Editing pre-fills the name + collapses the saved details into the building
+  // line (the store keeps a single details string, not separate fields).
+  const [name, setName] = useState<string>(existing?.title ?? '');
+  const [building, setBuilding] = useState<string>(existing?.details ?? '');
+  const [street, setStreet] = useState<string>('');
+  const [city, setCity] = useState<string>('');
+  const [entrance, setEntrance] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
+
+  const onSave = async () => {
+    const title = name.trim() || t('home_label');
+    const details = [building, street, city, entrance]
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .join(', ');
+    const store = useAddressStore.getState();
+    if (isEdit && addressId) {
+      await store.updateAddress(addressId, { title, details, icon: iconForName(title) });
+    } else {
+      await store.addAddress({
+        title,
+        details,
+        icon: iconForName(title),
+        isDefault: store.addresses.length === 0,
+      });
+    }
+    showSnack(t('address_saved'), 'success');
+    goBack(router, '/saved-addresses');
+  };
 
   const buildLabel = (text: string, icon?: keyof typeof MaterialIcons.glyphMap) => (
     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -48,7 +79,7 @@ export default function AddAddressScreen() {
         style={{
           fontSize: sp(14),
           color: AppColors.textColor2,
-          fontWeight: '500', // Slight weight for labels
+          fontFamily: quicksand('500'), // Slight weight for labels
         }}
       />
     </View>
@@ -77,9 +108,9 @@ export default function AddAddressScreen() {
                 ? t('edit_delivery_address')
                 : t('add_delivery_address')
             }
-            style={{ fontSize: sp(18), fontWeight: 'bold', color: AppColors.textColorTheme }}
+            style={{ fontSize: sp(18), fontFamily: quicksand('bold'), color: AppColors.textColorTheme }}
           />
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={() => goBack(router, '/saved-addresses')}>
             <MaterialIcons name="close" size={sp(24)} color={AppColors.textColorTheme} />
           </TouchableOpacity>
         </View>
@@ -160,15 +191,12 @@ export default function AddAddressScreen() {
       <View style={styles.bottomBar}>
         <TouchableOpacity
           activeOpacity={0.8}
-          onPress={() => {
-            // Save logic
-            router.back();
-          }}
+          onPress={onSave}
           style={styles.saveButton}
         >
           <BaseText
             title={isEdit ? t('save_address_btn') : t('add_address_btn')}
-            style={{ color: AppColors.white, fontSize: sp(16), fontWeight: 'bold' }}
+            style={{ color: AppColors.white, fontSize: sp(16), fontFamily: quicksand('bold') }}
           />
         </TouchableOpacity>
       </View>
@@ -268,6 +296,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: w(16),
     paddingVertical: h(14),
     fontSize: sp(16),
+    fontFamily: QuicksandFamily.regular,
     color: AppColors.textColorTheme,
     backgroundColor: AppColors.white,
   },
@@ -278,6 +307,7 @@ const styles = StyleSheet.create({
     minHeight: h(100),
     textAlignVertical: 'top',
     fontSize: sp(14),
+    fontFamily: QuicksandFamily.regular,
     color: AppColors.textColorTheme,
     backgroundColor: AppColors.white,
   },

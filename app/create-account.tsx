@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { AppColors, sp, TextStyles } from '@/theme';
+import { quicksand } from '@/theme/typography';
 import { Responsive } from '@/theme/responsive';
 import { t } from '@/i18n';
 import { AppImage, BaseText, LoadingButton, AppTextField } from '@/components';
@@ -108,7 +109,7 @@ export default function CreateAccountScreen() {
             title={t('jawlah')}
             style={[
               TextStyles.displayMedium,
-              { color: AppColors.primaryColorTheme, fontWeight: '500' },
+              { color: AppColors.primaryColorTheme, fontFamily: quicksand('500') },
             ]}
           />
           <View style={{ height: Responsive.gapLarge * 2 }} />
@@ -116,7 +117,7 @@ export default function CreateAccountScreen() {
             title={t('create_account')}
             style={[
               TextStyles.headlineMedium,
-              { color: AppColors.primaryColorTheme, fontWeight: '500' },
+              { color: AppColors.primaryColorTheme, fontFamily: quicksand('500') },
             ]}
           />
           <View style={{ height: Responsive.gapLarge }} />

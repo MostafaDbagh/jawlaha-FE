@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { AppColors, w, h, r, sp } from '@/theme';
+import { quicksand } from '@/theme/typography';
 import { t } from '@/i18n';
 import { BaseText, AppImage } from '@/components';
 import { formatPrice } from '@/lib/currency';
@@ -59,7 +60,7 @@ function TimelineStep({
           title={title}
           style={{
             fontSize: sp(16),
-            fontWeight: '600',
+            fontFamily: quicksand('600'),
             color: isCompleted
               ? AppColors.primaryColor
               : AppColors.textColorTheme,
@@ -133,7 +134,7 @@ export default function TrackingOrderScreen() {
             style={{
               color: AppColors.black,
               fontSize: sp(18),
-              fontWeight: 'bold',
+              fontFamily: quicksand('bold'),
             }}
           />
           <View style={{ width: r(24) }} />
@@ -173,7 +174,7 @@ export default function TrackingOrderScreen() {
                       title={`${eta} ${t('mins_until_delivery')}`}
                       style={{
                         fontSize: sp(18),
-                        fontWeight: 'bold',
+                        fontFamily: quicksand('bold'),
                         color: AppColors.black,
                       }}
                     />
@@ -211,7 +212,7 @@ export default function TrackingOrderScreen() {
                     <BaseText
                       title={driver.name ?? ''}
                       style={{
-                        fontWeight: 'bold',
+                        fontFamily: quicksand('bold'),
                         fontSize: sp(16),
                         color: AppColors.black,
                       }}
@@ -236,7 +237,7 @@ export default function TrackingOrderScreen() {
                         <BaseText
                           title={driver.rating}
                           style={{
-                            fontWeight: 'bold',
+                            fontFamily: quicksand('bold'),
                             fontSize: sp(14),
                             color: AppColors.black,
                           }}
@@ -268,7 +269,7 @@ export default function TrackingOrderScreen() {
                 title={t('order_summary')}
                 style={{
                   fontSize: sp(16),
-                  fontWeight: 'bold',
+                  fontFamily: quicksand('bold'),
                   color: AppColors.black,
                 }}
               />
@@ -296,7 +297,7 @@ export default function TrackingOrderScreen() {
                     <BaseText
                       title={order?.vendor_name ?? item.name}
                       style={{
-                        fontWeight: 'bold',
+                        fontFamily: quicksand('bold'),
                         fontSize: sp(14),
                         color: AppColors.black,
                       }}
@@ -309,7 +310,7 @@ export default function TrackingOrderScreen() {
                   <BaseText
                     title={formatPrice(item.unit_price * item.qty)}
                     style={{
-                      fontWeight: 'bold',
+                      fontFamily: quicksand('bold'),
                       fontSize: sp(14),
                       color: AppColors.black,
                     }}

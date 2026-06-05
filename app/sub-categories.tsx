@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { AppColors, w, h, r, sp } from '@/theme';
+import { QuicksandFamily, quicksand } from '@/theme/typography';
 import { BaseText } from '@/components';
 import { VendorListCard } from '@/components/cards';
 import { t } from '@/i18n';
@@ -78,10 +79,6 @@ export default function SubCategoriesScreen() {
                 color={AppColors.hintColor}
               />
             </View>
-            <View style={{ width: w(12) }} />
-            <Pressable onPress={_showFilterBottomSheet}>
-              <Ionicons name="filter" size={sp(24)} color={AppColors.textColorTheme} />
-            </Pressable>
           </View>
 
           <View style={{ height: h(16) }} />
@@ -262,7 +259,7 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
     fontSize: sp(18),
-    fontWeight: 'bold',
+    fontFamily: quicksand('bold'),
     color: AppColors.textColorTheme,
   },
   appBarDivider: {
@@ -297,6 +294,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: w(8),
     color: AppColors.textColorTheme,
     fontSize: sp(14),
+    fontFamily: QuicksandFamily.regular,
   },
   emptyText: {
     textAlign: 'center',
@@ -330,7 +328,7 @@ const styles = StyleSheet.create({
   floatingText: {
     color: AppColors.white,
     fontSize: sp(14),
-    fontWeight: '600',
+    fontFamily: quicksand('600'),
   },
   floatingDivider: {
     height: h(16),
@@ -362,7 +360,7 @@ const styles = StyleSheet.create({
   },
   sheetHeading: {
     fontSize: sp(18),
-    fontWeight: 'bold',
+    fontFamily: quicksand('bold'),
     color: AppColors.textColorTheme,
   },
   checkboxTile: {

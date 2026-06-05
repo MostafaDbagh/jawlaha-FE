@@ -3,6 +3,7 @@ import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { AppColors, w, h, r, sp } from '@/theme';
+import { quicksand } from '@/theme/typography';
 import { AppImage, BaseText } from '@/components';
 
 export interface StoreCardProps {
@@ -112,7 +113,7 @@ const styles = StyleSheet.create({
     padding: w(10),
   },
   name: {
-    fontWeight: 'bold',
+    fontFamily: quicksand('bold'),
     fontSize: sp(14),
     color: AppColors.textColor,
   },
@@ -124,7 +125,7 @@ const styles = StyleSheet.create({
   category: {
     color: AppColors.textColor2,
     fontSize: sp(12),
-    fontWeight: '400',
+    fontFamily: quicksand('400'),
   },
   ratingRow: {
     flexDirection: 'row',
@@ -132,7 +133,7 @@ const styles = StyleSheet.create({
   },
   rating: {
     fontSize: sp(12),
-    fontWeight: '600',
+    fontFamily: quicksand('600'),
     color: AppColors.textColorTheme,
   },
 });

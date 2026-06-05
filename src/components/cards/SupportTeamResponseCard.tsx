@@ -2,6 +2,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { AppColors, sp } from '@/theme';
+import { quicksand } from '@/theme/typography';
 import { Responsive } from '@/theme/responsive';
 import { t } from '@/i18n';
 import { BaseText } from '@/components';
@@ -44,7 +45,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: AppColors.primaryColorTheme,
-    fontWeight: '500',
+    fontFamily: quicksand('500'),
   },
 });
 

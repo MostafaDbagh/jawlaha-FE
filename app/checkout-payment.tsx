@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { AppColors, w, h, r, sp } from '@/theme';
+import { QuicksandFamily } from '@/theme/typography';
 import { BaseText } from '@/components';
 import { t } from '@/i18n';
 import { useI18n } from '@/i18n';
@@ -297,6 +298,7 @@ const styles = StyleSheet.create({
     borderRadius: r(8),
     padding: w(12),
     fontSize: sp(14),
+    fontFamily: QuicksandFamily.regular,
     color: AppColors.textColorTheme,
   },
   rowBetween: {

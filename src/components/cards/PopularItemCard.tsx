@@ -3,6 +3,7 @@ import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { AppColors, w, h, r, sp } from '@/theme';
+import { quicksand } from '@/theme/typography';
 import { AppImage, BaseText } from '@/components';
 
 interface PopularItemCardProps {
@@ -85,7 +86,7 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: sp(14),
-    fontWeight: 'bold',
+    fontFamily: quicksand('bold'),
     color: AppColors.textColorTheme,
   },
   description: {
@@ -100,7 +101,7 @@ const styles = StyleSheet.create({
   },
   price: {
     fontSize: sp(14),
-    fontWeight: 'bold',
+    fontFamily: quicksand('bold'),
     color: AppColors.textColorTheme,
   },
   addButton: {

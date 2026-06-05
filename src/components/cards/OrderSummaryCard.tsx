@@ -2,6 +2,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { AppColors, w, h, r, sp, TextStyles } from '@/theme';
+import { quicksand } from '@/theme/typography';
 import { t } from '@/i18n';
 import { BaseText } from '@/components';
 
@@ -30,7 +31,7 @@ function SummaryRow({
         title={label}
         style={{
           fontSize: isBold ? sp(16) : sp(14),
-          fontWeight: isBold ? 'bold' : 'normal',
+          fontFamily: quicksand(isBold ? 'bold' : 'normal'),
           color: isBold ? AppColors.textColorTheme : AppColors.textColor2,
         }}
       />
@@ -38,7 +39,7 @@ function SummaryRow({
         title={value}
         style={{
           fontSize: isBold ? sp(16) : sp(14),
-          fontWeight: isBold ? 'bold' : '600',
+          fontFamily: quicksand(isBold ? 'bold' : '600'),
           color: isBold
             ? AppColors.textColorTheme
             : isDiscount
@@ -56,7 +57,7 @@ export function OrderSummaryCard(props: OrderSummaryCardProps) {
     <View style={styles.container}>
       <BaseText
         title={t('order_summary')}
-        style={[TextStyles.bodyMedium, { fontWeight: 'bold', fontSize: sp(16) }]}
+        style={[TextStyles.bodyMedium, { fontFamily: quicksand('bold'), fontSize: sp(16) }]}
       />
       <View style={{ height: h(16) }} />
       <SummaryRow label={t('subtotal')} value={subtotal} isBold={false} />

@@ -5,6 +5,7 @@ import { View, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { MaterialIcons } from '@expo/vector-icons';
 import { AppColors, w, h, r, sp } from '@/theme';
+import { quicksand } from '@/theme/typography';
 import { BaseText } from '@/components';
 
 export interface RestaurantBadge {
@@ -119,16 +120,16 @@ const styles = StyleSheet.create({
   image: { width: '100%', height: '100%' },
   imageFallback: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   body: { flex: 1, paddingLeft: w(12), justifyContent: 'center' },
-  name: { fontSize: sp(16), fontWeight: '700', color: AppColors.textColorTheme },
+  name: { fontSize: sp(16), fontFamily: quicksand('700'), color: AppColors.textColorTheme },
   cuisine: { fontSize: sp(13), color: AppColors.greyTextColorV3, marginTop: h(2) },
   metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: h(6) },
-  free: { fontSize: sp(12), color: AppColors.green, fontWeight: '700' },
+  free: { fontSize: sp(12), color: AppColors.green, fontFamily: quicksand('700') },
   meta: { fontSize: sp(12), color: AppColors.greyTextColorV3 },
   badgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: w(6), marginTop: h(8) },
   badge: { paddingHorizontal: w(8), paddingVertical: h(3), borderRadius: r(6) },
   badgeOffer: { backgroundColor: '#FBE9A8' },
   badgeFree: { backgroundColor: 'rgba(22,167,121,0.15)' },
-  badgeText: { fontSize: sp(11), fontWeight: '600' },
+  badgeText: { fontSize: sp(11), fontFamily: quicksand('600') },
   badgeOfferText: { color: '#8A6D00' },
   badgeFreeText: { color: AppColors.green },
 });

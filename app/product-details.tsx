@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 
 import { AppColors, w, h, r, sp } from '@/theme';
+import { quicksand } from '@/theme/typography';
 import { t } from '@/i18n';
 import { useProductStore } from '@/features/categories/productStore';
 import { useCartStore } from '@/features/cart/cartStore';
@@ -32,6 +33,11 @@ export default function ProductDetailsScreen() {
 
   const currentProduct = useProductStore((s) => s.currentProduct);
   const isLoading = useProductStore((s) => s.isLoading);
+
+  // The bottom bar reflects the real cart, not the local stepper — so it shows
+  // no price until the user has actually added something to the cart.
+  const cartSummary = useCartStore((s) => s.summary);
+  const cartHasItems = cartSummary.items_count > 0;
 
   // Product comes via navArgs; if only an id is present, fetch it.
   const argProduct = args.product as ProductModel | undefined;
@@ -128,6 +134,27 @@ export default function ProductDetailsScreen() {
   }
 
   const displayPrice = product.finalPrice ?? product.price ?? 0;
+  // Original price is only struck through when there's an actual discount.
+  const originalPrice = product.price ?? 0;
+
+  // The selected variation overrides the unit price (its `price` is absolute,
+  // matching how the backend resolves it in cartController.addItem). Without
+  // this the Add To Cart total stayed at the base price after picking e.g.
+  // "Double".
+  const selectedVariation =
+    selectedVariationId != null
+      ? variations.find((v) => v.id === selectedVariationId) ?? null
+      : null;
+  const unitPrice = selectedVariation
+    ? selectedVariation.price ?? selectedVariation.priceModifier ?? displayPrice
+    : displayPrice;
+
+  // The struck-through original price only makes sense for a base-product
+  // discount; a variation replaces the unit price outright.
+  const hasDiscount =
+    !selectedVariation &&
+    product.finalPrice != null &&
+    originalPrice > product.finalPrice;
 
   const onAddToCart = async () => {
     // Cart is server-side and per-user, so a guest must sign in first.
@@ -136,13 +163,14 @@ export default function ProductDetailsScreen() {
       router.push('/login');
       return;
     }
-    const ok = await useCartStore.getState().addItem({
+    const res = await useCartStore.getState().addItem({
       product_id: product.id as any,
       qty,
       variation_id: (selectedVariationId ?? null) as any,
     });
-    if (ok) {
-      showSnack(t('added_to_cart'), 'success');
+    if (res.ok) {
+      // If the backend reset a different restaurant's cart, say so.
+      showSnack(res.reset ? t('cart_reset_new_restaurant') : t('added_to_cart'), 'success');
       router.back();
     }
   };
@@ -244,8 +272,39 @@ export default function ProductDetailsScreen() {
               </>
             )}
 
-            {/* Add to Cart Button (inline) */}
-            <View style={{ alignItems: 'flex-end' }}>
+            {/* Quantity stepper + Add to Cart button (inline row) */}
+            <View style={styles.actionRow}>
+              {/* Quantity stepper */}
+              <View style={styles.stepper}>
+                <TouchableOpacity
+                  hitSlop={8}
+                  activeOpacity={0.7}
+                  disabled={qty <= 1}
+                  onPress={() => setQty((q) => Math.max(1, q - 1))}
+                  style={styles.stepperBtn}
+                >
+                  <Ionicons
+                    name="remove"
+                    size={sp(20)}
+                    color={qty <= 1 ? AppColors.textColor2 : AppColors.textColorTheme}
+                  />
+                </TouchableOpacity>
+                <Text style={styles.stepperQty}>{qty}</Text>
+                <TouchableOpacity
+                  hitSlop={8}
+                  activeOpacity={0.7}
+                  onPress={() => setQty((q) => q + 1)}
+                  style={styles.stepperBtn}
+                >
+                  <Ionicons
+                    name="add"
+                    size={sp(20)}
+                    color={AppColors.textColorTheme}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {/* Add to Cart button with price */}
               <TouchableOpacity
                 activeOpacity={0.85}
                 onPress={onAddToCart}
@@ -259,6 +318,27 @@ export default function ProductDetailsScreen() {
                     fontWeight: '600',
                   }}
                 />
+                <View style={{ alignItems: 'flex-end' }}>
+                  <BaseTextRaw
+                    text={formatPrice(unitPrice * qty)}
+                    style={{
+                      color: AppColors.white,
+                      fontSize: sp(16),
+                      fontWeight: '700',
+                    }}
+                  />
+                  {hasDiscount && (
+                    <BaseTextRaw
+                      text={formatPrice(originalPrice * qty)}
+                      style={{
+                        color: `${AppColors.white}B3`, // ~0.7 opacity
+                        fontSize: sp(13),
+                        fontWeight: '500',
+                        textDecorationLine: 'line-through',
+                      }}
+                    />
+                  )}
+                </View>
               </TouchableOpacity>
             </View>
 
@@ -267,20 +347,25 @@ export default function ProductDetailsScreen() {
           </View>
         </ScrollView>
 
-        {/* Bottom View Cart Bar */}
+        {/* Bottom View Cart Bar — price only appears once the cart has items. */}
         <TouchableOpacity
           activeOpacity={0.9}
-          style={styles.bottomBar}
+          style={[
+            styles.bottomBar,
+            !cartHasItems && { justifyContent: 'center' },
+          ]}
           onPress={() => router.push('/(tabs)/cart')}
         >
-          <BaseTextRaw
-            text={formatPrice(displayPrice * qty)}
-            style={{
-              color: AppColors.white,
-              fontSize: sp(16),
-              fontWeight: '600',
-            }}
-          />
+          {cartHasItems && (
+            <BaseTextRaw
+              text={formatPrice(cartSummary.subtotal)}
+              style={{
+                color: AppColors.white,
+                fontSize: sp(16),
+                fontWeight: '600',
+              }}
+            />
+          )}
           <BaseTextRaw
             text={t('view_cart')}
             style={{
@@ -296,8 +381,13 @@ export default function ProductDetailsScreen() {
 }
 
 // Small inline text helper (keeps style array semantics close to Flutter Text).
+// Picks the Quicksand family that matches the style's fontWeight.
 function BaseTextRaw({ text, style }: { text: string; style?: TextStyle }) {
-  return <Text style={style}>{text}</Text>;
+  return (
+    <Text style={[{ fontFamily: quicksand(style?.fontWeight) }, style]}>
+      {text}
+    </Text>
+  );
 }
 
 function BaseOptionText({
@@ -310,7 +400,7 @@ function BaseOptionText({
   weight: TextStyle['fontWeight'];
 }) {
   return (
-    <Text style={{ fontSize: sp(15), fontWeight: weight, color }}>{text}</Text>
+    <Text style={{ fontSize: sp(15), fontFamily: quicksand(weight), color }}>{text}</Text>
   );
 }
 
@@ -398,13 +488,40 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  addToCartBtn: {
-    width: w(150),
-    height: h(48),
-    backgroundColor: AppColors.primaryColor,
-    borderRadius: r(8),
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+  },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: AppColors.lightGrey,
+    borderRadius: r(12),
+    paddingHorizontal: w(4),
+    marginRight: w(12),
+  },
+  stepperBtn: {
+    width: w(40),
+    height: h(52),
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  stepperQty: {
+    minWidth: w(24),
+    textAlign: 'center',
+    fontSize: sp(16),
+    fontFamily: quicksand('700'),
+    color: AppColors.textColorTheme,
+  },
+  addToCartBtn: {
+    flex: 1,
+    height: h(52),
+    backgroundColor: AppColors.primaryColor,
+    borderRadius: r(12),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: w(20),
   },
   bottomBar: {
     position: 'absolute',

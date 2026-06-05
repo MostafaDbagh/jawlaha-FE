@@ -15,6 +15,7 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { AppColors, w, h, r, sp } from '@/theme';
+import { quicksand } from '@/theme/typography';
 import { t } from '@/i18n';
 import { AppImage, BaseText } from '@/components';
 import {
@@ -44,7 +45,10 @@ export default function VendorDetailsScreen() {
   const subcategories = useProductStore((s) => s.subcategories);
   const products = useProductStore((s) => s.products);
   const isLoading = useProductStore((s) => s.isLoading);
-  const cartCount = useCartStore((s) => s.summary.items_count);
+
+  // Bottom bar reflects the real cart: item count + subtotal.
+  const cartSummary = useCartStore((s) => s.summary);
+  const cartHasItems = cartSummary.items_count > 0;
 
   const [favorite, setFavorite] = useState(false);
 
@@ -111,7 +115,7 @@ export default function VendorDetailsScreen() {
     <View style={styles.badge}>
       <BaseText
         title={text}
-        style={{ fontSize: sp(12), fontWeight: '500' }}
+        style={{ fontSize: sp(12), fontFamily: quicksand('500') }}
       />
     </View>
   );
@@ -232,7 +236,7 @@ export default function VendorDetailsScreen() {
                   title={headerTitle}
                   style={{
                     fontSize: sp(20),
-                    fontWeight: 'bold',
+                    fontFamily: quicksand('bold'),
                     color: AppColors.textColorTheme,
                   }}
                 />
@@ -259,7 +263,7 @@ export default function VendorDetailsScreen() {
                     style={{
                       fontSize: sp(12),
                       color: AppColors.textColorTheme,
-                      fontWeight: '600',
+                      fontFamily: quicksand('600'),
                     }}
                   />
                 </View>
@@ -285,7 +289,7 @@ export default function VendorDetailsScreen() {
               title={t('about')}
               style={{
                 fontSize: sp(16),
-                fontWeight: 'bold',
+                fontFamily: quicksand('bold'),
                 color: AppColors.textColorTheme,
               }}
             />
@@ -314,7 +318,7 @@ export default function VendorDetailsScreen() {
                   title={
                     [branch.address, branch.city].filter(Boolean).join(', ')
                   }
-                  style={{ fontSize: sp(14), fontWeight: '500' }}
+                  style={{ fontSize: sp(14), fontFamily: quicksand('500') }}
                 />
               </View>
               <MaterialIcons
@@ -330,7 +334,7 @@ export default function VendorDetailsScreen() {
               title={t('promotions')}
               style={{
                 fontSize: sp(16),
-                fontWeight: 'bold',
+                fontFamily: quicksand('bold'),
                 color: AppColors.textColorTheme,
               }}
             />
@@ -367,7 +371,7 @@ export default function VendorDetailsScreen() {
                       <BaseText
                         title={e}
                         style={{
-                          fontWeight: selected ? 'bold' : '500',
+                          fontFamily: quicksand(selected ? 'bold' : '500'),
                           fontSize: selected ? sp(16) : sp(15),
                           color: selected
                             ? AppColors.primaryColor
@@ -398,7 +402,7 @@ export default function VendorDetailsScreen() {
             <View style={styles.spaceBetweenRow}>
               <BaseText
                 title={t('most_popular')}
-                style={{ fontSize: sp(18), fontWeight: 'bold' }}
+                style={{ fontSize: sp(18), fontFamily: quicksand('bold') }}
               />
               <BaseText
                 title={t('view_all')}
@@ -425,7 +429,7 @@ export default function VendorDetailsScreen() {
             {/* Category Header for List */}
             <BaseText
               title={menuCategories[tabIndex] ?? t('most_popular')}
-              style={{ fontSize: sp(18), fontWeight: 'bold' }}
+              style={{ fontSize: sp(18), fontFamily: quicksand('bold') }}
             />
             <View style={{ height: h(16) }} />
           </View>
@@ -468,25 +472,43 @@ export default function VendorDetailsScreen() {
         {/* Bottom Cart Button (Positioned) */}
         <View style={styles.bottomCartWrap}>
           <Pressable
-            style={({ pressed }) => [styles.bottomCart, pressed && { opacity: 0.9 }]}
+            style={({ pressed }) => [
+              styles.bottomCart,
+              !cartHasItems && { justifyContent: 'center' },
+              pressed && { opacity: 0.9 },
+            ]}
             onPress={() => router.push('/(tabs)/cart')}
           >
-            <BaseText
-              title={`${cartCount} ${t('items')}`}
-              style={{
-                color: AppColors.white,
-                fontSize: sp(16),
-                fontWeight: '600',
-              }}
-            />
+            {cartHasItems && (
+              <View style={styles.cartBadge}>
+                <BaseText
+                  title={String(cartSummary.items_count)}
+                  style={{
+                    color: AppColors.darkTeal,
+                    fontSize: sp(13),
+                    fontFamily: quicksand('bold'),
+                  }}
+                />
+              </View>
+            )}
             <BaseText
               title={t('view_cart')}
               style={{
                 color: AppColors.white,
                 fontSize: sp(16),
-                fontWeight: 'bold',
+                fontFamily: quicksand('bold'),
               }}
             />
+            {cartHasItems && (
+              <BaseText
+                title={formatPrice(cartSummary.subtotal)}
+                style={{
+                  color: AppColors.white,
+                  fontSize: sp(16),
+                  fontFamily: quicksand('bold'),
+                }}
+              />
+            )}
           </Pressable>
         </View>
       </View>
@@ -613,5 +635,14 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
+  },
+  cartBadge: {
+    minWidth: w(24),
+    height: w(24),
+    paddingHorizontal: w(6),
+    borderRadius: r(12),
+    backgroundColor: AppColors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

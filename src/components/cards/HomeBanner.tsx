@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { BaseText } from '@/components';
 import { AppColors, h, r, sp, w } from '@/theme';
+import { quicksand } from '@/theme/typography';
 
 export interface HomeBannerProps {
   title?: string;
@@ -93,12 +94,12 @@ const styles = StyleSheet.create({
   badgeText: {
     color: AppColors.white,
     fontSize: sp(10),
-    fontWeight: 'bold',
+    fontFamily: quicksand('bold'),
   },
   subtitle: {
     color: AppColors.white,
     fontSize: sp(18),
-    fontWeight: 'bold',
+    fontFamily: quicksand('bold'),
   },
   footer: {
     color: 'rgba(255, 255, 255, 0.7)', // AppColors.white.withOpacity(0.7)
@@ -115,7 +116,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: AppColors.primaryColor, // Text color
-    fontWeight: 'bold',
+    fontFamily: quicksand('bold'),
     fontSize: sp(12),
   },
 });

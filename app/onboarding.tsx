@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { AppColors, w, h, r, sp, screenWidth, TextStyles } from '@/theme';
+import { quicksand } from '@/theme/typography';
 import { t } from '@/i18n';
 import { AppImage, BaseText } from '@/components';
 import { Res } from '@/lib/assets';
@@ -116,7 +117,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   safeArea: { flex: 1, backgroundColor: AppColors.backgroundColor },
   topBar: { alignItems: 'flex-end', paddingHorizontal: w(20), paddingTop: h(8) },
-  skip: { color: AppColors.primaryColorTheme, fontWeight: '700' },
+  skip: { color: AppColors.primaryColorTheme, fontFamily: quicksand('700') },
   slide: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: w(28) },
   center: { textAlign: 'center' },
   desc: { color: AppColors.greyTextColorV3, maxWidth: w(320) },
@@ -138,5 +139,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   signInRow: { alignItems: 'center', paddingVertical: h(6) },
-  signIn: { color: AppColors.secondMainColor, fontWeight: '700' },
+  signIn: { color: AppColors.secondMainColor, fontFamily: quicksand('700') },
 });

@@ -15,6 +15,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { AppColors, w, h, r, sp } from '@/theme';
+import { quicksand } from '@/theme/typography';
 import { Responsive } from '@/theme/responsive';
 import { t } from '@/i18n';
 import { BaseText } from '@/components';
@@ -43,6 +44,7 @@ export default function HomeScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
+  const [offerIndex, setOfferIndex] = useState(0);
 
   const q = query.trim().toLowerCase();
   const isSearching = q.length > 0;
@@ -112,20 +114,23 @@ export default function HomeScreen() {
         }}
       >
         <View style={{ height: h(10) }} />
-        <LocationHeader address={addressTitle} />
+        <LocationHeader
+          address={addressTitle}
+          onPressNotifications={() => router.push('/notifications')}
+        />
         <View style={{ height: h(16) }} />
         <View style={styles.fullWidth}>
-          <CustomSearchBar value={query} onChangeText={setQuery} />
+          <CustomSearchBar
+            value={query}
+            onChangeText={setQuery}
+          />
         </View>
 
         {/* 1. Categories */}
         {(isCategoriesLoading || filteredCategories.length > 0) && (
           <>
             <View style={{ height: h(20) }} />
-            <SectionHeader
-              title={t('categories')}
-              onViewAllTap={() => router.push('/(tabs)/categories')}
-            />
+            <SectionHeader title={t('categories')} />
             <View style={{ height: h(12) }} />
             <View style={{ height: h(96) }}>
               <FlatList
@@ -163,6 +168,11 @@ export default function HomeScreen() {
                 data={banners}
                 keyExtractor={(item, i) => `offer-${item.id ?? i}`}
                 ItemSeparatorComponent={() => <View style={{ width: w(12) }} />}
+                onMomentumScrollEnd={(e) =>
+                  setOfferIndex(
+                    Math.round(e.nativeEvent.contentOffset.x / (w(220) + w(12))),
+                  )
+                }
                 renderItem={({ item: o }) => (
                   <Pressable onPress={() => router.push('/all-vendors')} style={styles.offerCard}>
                     <View style={styles.offerDiscountPill}>
@@ -175,6 +185,18 @@ export default function HomeScreen() {
                 )}
               />
             </View>
+
+            {/* Pagination dots — active page is a wider teal pill. */}
+            {banners.length > 1 && (
+              <View style={styles.dotsRow}>
+                {banners.map((b, i) => (
+                  <View
+                    key={`offer-dot-${b.id ?? i}`}
+                    style={[styles.dot, i === offerIndex ? styles.dotActive : styles.dotInactive]}
+                  />
+                ))}
+              </View>
+            )}
           </>
         )}
 
@@ -244,6 +266,25 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: AppColors.white },
   fullWidth: { width: '100%' },
+  dotsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: h(12),
+  },
+  dot: {
+    height: h(8),
+    borderRadius: h(4),
+    marginHorizontal: w(3),
+  },
+  dotActive: {
+    width: w(20),
+    backgroundColor: AppColors.primaryColor,
+  },
+  dotInactive: {
+    width: h(8),
+    backgroundColor: AppColors.baserColor,
+  },
   offerCard: {
     width: w(220),
     padding: w(14),
@@ -258,8 +299,8 @@ const styles = StyleSheet.create({
     borderRadius: r(20),
     backgroundColor: AppColors.secondMainColor,
   },
-  offerDiscountText: { color: AppColors.white, fontSize: sp(12), fontWeight: '700' },
-  offerTitle: { color: AppColors.white, fontSize: sp(16), fontWeight: '700' },
+  offerDiscountText: { color: AppColors.white, fontSize: sp(12), fontFamily: quicksand('700') },
+  offerTitle: { color: AppColors.white, fontSize: sp(16), fontFamily: quicksand('700') },
   offerDesc: { color: 'rgba(255,255,255,0.9)', fontSize: sp(12), marginTop: h(2) },
   brandTile: {
     width: w(72),

@@ -4,6 +4,7 @@ import { View, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { AppColors, TextStyles, screenWidth } from '@/theme';
+import { quicksand } from '@/theme/typography';
 import { Responsive } from '@/theme/responsive';
 import { BaseText, AppImage } from '@/components';
 
@@ -96,7 +97,7 @@ export function AuthSubBar({
               TextStyles.bodyMedium,
               {
                 fontSize: textSize ?? getResponsiveFontSize(1.05),
-                ...(fontWeight ? { fontWeight } : {}),
+                ...(fontWeight ? { fontFamily: quicksand(fontWeight) } : {}),
               },
             ]}
           />
