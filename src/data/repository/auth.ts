@@ -6,7 +6,6 @@ import {
   parseAuthModel,
   ProfileModel,
   parseProfileModel,
-  parseUser,
 } from '@/types/auth';
 import {
   CheckFormModel,
@@ -19,6 +18,16 @@ import {
   parseCompanyModel,
 } from '@/types/authExtras';
 import { useAuthStore } from '@/store/authStore';
+import { secureStorage } from '@/lib/storage';
+
+// Persist both tokens + user from an auth response (login/register/otp).
+async function persistAuth(authModel: AuthModel): Promise<void> {
+  useAuthStore.getState().setUser(authModel.user ?? null);
+  await useAuthStore.getState().setToken(authModel.token as string);
+  if (authModel.refreshToken) {
+    await useAuthStore.getState().setRefreshToken(authModel.refreshToken);
+  }
+}
 
 // -------------------------------------------------------
 // InputValidator (mirrors core/security/input_validator.dart) — used by login.
@@ -100,8 +109,7 @@ export async function login(email: string, password: string): Promise<CustomResp
   if (data.success) {
     const authModel = data.object as AuthModel;
     if (authModel.token != null && authModel.token.length > 0) {
-      useAuthStore.getState().setUser(authModel.user ?? null);
-      await useAuthStore.getState().setToken(authModel.token);
+      await persistAuth(authModel);
       await getProfile();
     }
   }
@@ -253,7 +261,7 @@ export async function register(args: {
   if (data.success) {
     const authModel = data.object as AuthModel;
     if (authModel.token != null && authModel.token.length > 0) {
-      await useAuthStore.getState().setToken(authModel.token);
+      await persistAuth(authModel);
       await getProfile();
     }
   }
@@ -303,8 +311,7 @@ export async function verifyOtpLogin(phone: string, otp: string): Promise<Custom
   if (data.success) {
     const authModel = data.object as AuthModel;
     if (authModel.token != null && authModel.token.length > 0) {
-      useAuthStore.getState().setUser(authModel.user ?? null);
-      await useAuthStore.getState().setToken(authModel.token);
+      await persistAuth(authModel);
       await getProfile();
     }
   }
@@ -314,7 +321,7 @@ export async function verifyOtpLogin(phone: string, otp: string): Promise<Custom
 export async function verifyEmail(email: string, otpCode: string): Promise<CustomResponse> {
   return await apiClient.postV2({
     subUrl: 'auth/verify-email',
-    data: { email: email, otp_code: otpCode },
+    data: { email: email, otp: otpCode, type: 'email_verification' },
     needToken: false,
   });
 }
@@ -328,15 +335,22 @@ export async function healthCheck(): Promise<CustomResponse> {
 }
 
 export async function refreshToken(): Promise<CustomResponse> {
+  // jawlahapp expects the refresh token in the body (not an Authorization header).
+  const stored =
+    useAuthStore.getState().refreshToken || (await secureStorage.getRefreshToken());
   const data = await apiClient.postV2<AuthModel>({
     subUrl: 'auth/refresh-token',
-    needToken: true,
+    needToken: false,
+    data: { refreshToken: stored },
     fromJson: parseAuthModel,
   });
   if (data.success) {
     const authModel = data.object as AuthModel;
     if (authModel.token != null && authModel.token.length > 0) {
       await useAuthStore.getState().setToken(authModel.token);
+      if (authModel.refreshToken) {
+        await useAuthStore.getState().setRefreshToken(authModel.refreshToken);
+      }
     }
   }
   return data;
@@ -350,10 +364,14 @@ export async function resendOtp(email: string): Promise<CustomResponse> {
   });
 }
 
-export async function verifyOtp(email: string, otp: string): Promise<CustomResponse> {
+export async function verifyOtp(
+  email: string,
+  otp: string,
+  type: 'email_verification' | 'phone_verification' | 'password_reset' = 'email_verification',
+): Promise<CustomResponse> {
   return await apiClient.postV2({
     subUrl: 'auth/verify-otp',
-    data: { email: email, otp_code: otp },
+    data: { email: email, otp: otp, type },
     needToken: false,
   });
 }
@@ -373,7 +391,7 @@ export async function resetPassword(
 ): Promise<CustomResponse> {
   return await apiClient.postV2({
     subUrl: 'auth/reset-password',
-    data: { email: email, otp_code: otp, new_password: newPassword },
+    data: { email: email, otp: otp, newPassword: newPassword },
     needToken: false,
   });
 }

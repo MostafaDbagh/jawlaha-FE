@@ -1,4 +1,12 @@
 export const ar: Record<string, string> = {
+  "onboarding_title_1": "اكتشف أماكن رائعة",
+  "onboarding_desc_1": "تصفّح المتاجر والبائعين القريبين منك في جميع أنحاء سوريا.",
+  "onboarding_title_2": "اطلب بسهولة",
+  "onboarding_desc_2": "أضف مفضّلاتك إلى السلة وأكمل الطلب في ثوانٍ.",
+  "onboarding_title_3": "الدفع عند الاستلام",
+  "onboarding_desc_3": "ادفع نقدًا عند وصول طلبك إلى باب منزلك.",
+  "get_started": "ابدأ الآن",
+  "login_required_to_order": "يرجى تسجيل الدخول لإتمام طلبك.",
   "login": "تسجيل دخول",
   "login_with": "سجل دخول بواسطة",
   "or_txt": "أو",

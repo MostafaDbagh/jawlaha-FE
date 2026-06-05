@@ -38,43 +38,70 @@ export function parseCompanies(json: any): Companies {
 }
 
 export interface User {
-  id?: number;
-  customId?: string;
+  // --- jawlahapp fields (User model / getPublicProfile) ---
+  userId?: string;
+  username?: string;
+  fullName?: string;
+  countryCode?: string;
+  phoneNumber?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  profileImage?: string | null;
+  accountType?: string;
+  isActive?: boolean;
+  isVerified?: boolean;
+  emailVerified?: boolean;
+  phoneVerified?: boolean;
+  preferredLanguage?: string;
+  timezone?: string;
+
+  // --- common ---
+  email?: string;
+  createdAt?: string;
+  updatedAt?: string;
+
+  // --- legacy/back-compat aliases used by some ported screens ---
+  id?: number | string;
   name?: string;
+  phone?: string;
+  customId?: string;
   firstName?: string;
   middleName?: string;
   lastName?: string;
-  email?: string;
-  phone?: string;
   emailVerifiedAt?: string;
-  verified?: number;
+  verified?: number | boolean;
   status?: string;
   nationalInsuranceNumber?: string;
-  createdAt?: string;
-  updatedAt?: string;
   selectedCompany?: string;
   companies?: Companies[];
-  accountType?: string;
 }
 
 export function parseUser(json: any): User {
   return {
-    id: json?.id,
-    customId: json?.custom_id,
-    name: json?.name,
-    firstName: json?.first_name,
-    middleName: json?.middle_name,
-    lastName: json?.last_name,
+    userId: json?.user_id,
+    username: json?.username,
+    fullName: json?.full_name,
+    countryCode: json?.country_code,
+    phoneNumber: json?.phone_number,
+    dateOfBirth: json?.date_of_birth,
+    gender: json?.gender,
+    profileImage: json?.profile_image,
+    accountType: json?.account_type,
+    isActive: json?.is_active,
+    isVerified: json?.is_verified,
+    emailVerified: json?.email_verified,
+    phoneVerified: json?.phone_verified,
+    preferredLanguage: json?.preferred_language,
+    timezone: json?.timezone,
     email: json?.email,
-    phone: json?.phone,
-    emailVerifiedAt: json?.email_verified_at,
-    verified: json?.verified,
-    status: json?.status,
-    nationalInsuranceNumber: json?.national_insurance_number,
     createdAt: json?.created_at,
     updatedAt: json?.updated_at,
-    selectedCompany: json?.selected_company,
-    accountType: json?.account_type,
+
+    // Back-compat aliases so existing screens that read `name`/`id`/`phone` still work.
+    id: json?.user_id ?? json?.id,
+    name: json?.full_name ?? json?.username ?? json?.name,
+    phone: json?.phone_number ?? json?.phone,
+    verified: json?.is_verified ?? json?.verified,
     companies: Array.isArray(json?.companies) ? json.companies.map(parseCompanies) : undefined,
   };
 }
@@ -103,13 +130,16 @@ export function userToJson(u: User): any {
 export interface AuthModel {
   success?: boolean;
   token?: string;
+  refreshToken?: string;
   user?: User | null;
 }
 
 export function parseAuthModel(json: any): AuthModel {
   return {
     success: json?.success,
-    token: json?.token,
+    // jawlahapp returns access/refresh tokens; older shape used `token`.
+    token: json?.accessToken ?? json?.token,
+    refreshToken: json?.refreshToken,
     user: json?.user != null ? parseUser(json.user) : null,
   };
 }

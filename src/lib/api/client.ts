@@ -16,8 +16,11 @@ export const hydrateAuthToken = async () => {
 
 export interface BaseEnvelope {
   status?: boolean;
+  /** jawlahapp sends the human-readable text as `message` (singular). */
+  message?: string;
   messages?: string;
   code?: number;
+  count?: number;
   data?: any;
 }
 
@@ -61,7 +64,10 @@ async function parseEnvelope(res: Response): Promise<BaseEnvelope> {
   const text = await res.text();
   if (!text) return { status: res.ok, messages: '', data: null };
   try {
-    return JSON.parse(text) as BaseEnvelope;
+    const env = JSON.parse(text) as BaseEnvelope;
+    // jawlahapp returns `message`; the rest of the client reads `messages`.
+    if (env.messages == null && env.message != null) env.messages = env.message;
+    return env;
   } catch {
     return { status: res.ok, messages: text, data: null };
   }

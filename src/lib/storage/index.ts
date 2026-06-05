@@ -60,6 +60,7 @@ export const storage = {
 
 // Secure token storage (mirrors SecureStorageHelper).
 const TOKEN_KEY = 'secure_access_token';
+const REFRESH_TOKEN_KEY = 'secure_refresh_token';
 
 export const secureStorage = {
   async saveToken(token: string): Promise<void> {
@@ -77,8 +78,19 @@ export const secureStorage = {
     if (secure) return secure;
     return (await storage.getString(StorageKeys.ACCESS_TOKEN)) ?? '';
   },
+  async saveRefreshToken(token: string): Promise<void> {
+    if (!token) {
+      await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY).catch(() => {});
+      return;
+    }
+    await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, token);
+  },
+  async getRefreshToken(): Promise<string> {
+    return (await SecureStore.getItemAsync(REFRESH_TOKEN_KEY).catch(() => null)) ?? '';
+  },
   async clearToken(): Promise<void> {
     await SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => {});
+    await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY).catch(() => {});
     await storage.setString(StorageKeys.ACCESS_TOKEN, '');
   },
   async clearAllData(): Promise<void> {

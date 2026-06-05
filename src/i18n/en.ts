@@ -1,4 +1,12 @@
 export const en: Record<string, string> = {
+  "onboarding_title_1": "Discover great places",
+  "onboarding_desc_1": "Browse vendors and stores near you across Syria.",
+  "onboarding_title_2": "Order with ease",
+  "onboarding_desc_2": "Add your favorites to the cart and check out in seconds.",
+  "onboarding_title_3": "Cash on delivery",
+  "onboarding_desc_3": "Pay in cash when your order arrives at your door.",
+  "get_started": "Get Started",
+  "login_required_to_order": "Please sign in to place your order.",
   "login": "Login",
   "login_with": "Login With",
   "or_txt": "OR",

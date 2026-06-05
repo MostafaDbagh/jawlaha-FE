@@ -13,6 +13,8 @@ import { AppColors, w, h, r, sp } from '@/theme';
 import { BaseText } from '@/components';
 import { t } from '@/i18n';
 import { useI18n } from '@/i18n';
+import { useAuthStore } from '@/store/authStore';
+import { showSnack } from '@/lib/snack';
 
 export default function CheckoutPaymentScreen() {
   const router = useRouter();
@@ -250,6 +252,12 @@ export default function CheckoutPaymentScreen() {
         {/* Confirm Order Button */}
         <Pressable
           onPress={() => {
+            // Only signed-in users can place an order.
+            if (!useAuthStore.getState().isLoggedIn) {
+              showSnack(t('login_required_to_order'), 'info');
+              router.push('/login');
+              return;
+            }
             router.push('/checkout-success');
           }}
           style={styles.confirmBtn}

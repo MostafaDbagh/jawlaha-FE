@@ -14,6 +14,8 @@ import { AppColors, w, h, r, sp } from '@/theme';
 import { Responsive } from '@/theme/responsive';
 import { t } from '@/i18n';
 import { BaseText } from '@/components';
+import { useAuthStore } from '@/store/authStore';
+import { showSnack } from '@/lib/snack';
 import {
   CartItemCard,
   OrderSummaryCard,
@@ -126,7 +128,12 @@ export default function CartScreen() {
           <Pressable
             style={styles.elevatedButton}
             onPress={() => {
-              // Get.find<NavigationController>().navigateInTab(Routes.checkoutAddress);
+              // Guests can browse + build a cart, but must sign in to place an order.
+              if (!useAuthStore.getState().isLoggedIn) {
+                showSnack(t('login_required_to_order'), 'info');
+                router.push('/login');
+                return;
+              }
               router.push('/checkout-address');
             }}
           >

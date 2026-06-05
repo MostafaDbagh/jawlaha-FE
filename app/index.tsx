@@ -27,17 +27,20 @@ export default function SplashScreen() {
 
       try {
         const isLoggedIn = useAuthStore.getState().isLoggedIn;
-        // prefs.getIsFirstOpen() mirrors get_storage first-open flag.
-        const isFirstOpen = prefs.getIsFirstOpen();
-        void isFirstOpen;
 
+        // Already authenticated -> straight into the app.
         if (isLoggedIn) {
           router.replace('/(tabs)');
-        } else {
-          router.replace('/login');
+          return;
         }
+
+        // First launch -> onboarding. Afterwards, enter as a guest (browse without
+        // an account). The user is only asked to sign in when placing an order.
+        const hasOnboarded = await prefs.getIsFirstOpen();
+        router.replace(hasOnboarded ? '/(tabs)' : '/onboarding');
       } catch (e) {
-        router.replace('/login');
+        // On any error, let the user in as a guest rather than blocking them.
+        router.replace('/(tabs)');
       }
     })();
   }, [router]);
