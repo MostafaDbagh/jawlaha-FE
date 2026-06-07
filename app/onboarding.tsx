@@ -30,15 +30,18 @@ export default function OnboardingScreen() {
   const [page, setPage] = useState(0);
   const isLast = page === SLIDES.length - 1;
 
-  // Mark onboarding as seen, then enter the app as a guest.
-  async function finish() {
+  // Mark onboarding as seen so it never shows again, then route on.
+  // First-launch flow ends at the sign-up screen ('/create-account'); the
+  // "Sign in" link goes to '/login' for returning users, and "Skip" lets the
+  // user browse as a guest. Either way onboarding is marked seen.
+  async function finish(dest: '/(tabs)' | '/login' | '/create-account') {
     await prefs.setIsFirstOpen(true);
-    router.replace('/(tabs)');
+    router.replace(dest);
   }
 
   function goNext() {
     if (isLast) {
-      void finish();
+      void finish('/create-account');
       return;
     }
     const next = page + 1;
@@ -55,7 +58,7 @@ export default function OnboardingScreen() {
     <SafeAreaView style={styles.safeArea}>
       {/* Skip */}
       <View style={styles.topBar}>
-        <Pressable onPress={() => void finish()} hitSlop={12}>
+        <Pressable onPress={() => void finish('/(tabs)')} hitSlop={12}>
           <BaseText title={t('skip_now')} style={[TextStyles.bodyMedium, styles.skip]} />
         </Pressable>
       </View>
@@ -105,7 +108,7 @@ export default function OnboardingScreen() {
           />
         </Pressable>
 
-        <Pressable style={styles.signInRow} onPress={() => router.push('/login')} hitSlop={8}>
+        <Pressable style={styles.signInRow} onPress={() => void finish('/login')} hitSlop={8}>
           <BaseText title={t('sign_in')} style={[TextStyles.bodySmall, styles.signIn]} />
         </Pressable>
       </View>

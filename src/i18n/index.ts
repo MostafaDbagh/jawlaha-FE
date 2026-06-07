@@ -9,5 +9,6 @@ export {
   t,
   getCurrentLang,
   isRTL,
+  rowDirection,
 } from './I18nProvider';
 export type { LangCode } from './I18nProvider';

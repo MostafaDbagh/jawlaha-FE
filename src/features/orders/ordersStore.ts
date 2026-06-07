@@ -35,7 +35,7 @@ export interface Order {
   delivery_note?: string | null;
   leave_at_door?: boolean;
   dont_ring_bell?: boolean;
-  driver?: { name?: string; vehicle?: string; rating?: string; avatar?: string } | null;
+  driver?: { name?: string; vehicle?: string; rating?: string; avatar?: string; phone?: string } | null;
   status_timeline: TimelineStep[];
   eta_minutes?: number | null;
   created_at?: string;

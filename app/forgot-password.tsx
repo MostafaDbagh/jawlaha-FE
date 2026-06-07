@@ -1,60 +1,49 @@
-// Ported from: lib/screens/auth/forgot_password_screen.dart
+// Phone-based forgot password. Enter phone -> SMS code -> verify -> reset.
 import React, { useState } from 'react';
 import { ScrollView, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
 import { AppColors, TextStyles } from '@/theme';
 import { Responsive } from '@/theme/responsive';
 import { screenHeight } from '@/theme/scale';
-import { t } from '@/i18n';
+import { t, useI18n } from '@/i18n';
 import { AppBar, BaseText, AppTextField, LoadingButton } from '@/components';
 import { Validator } from '@/lib/validators';
+import { toApiPhone } from '@/lib/phone';
+import { navArgs } from '@/store/navArgs';
 import { useAuthControllerStore } from '@/features/auth/authStore';
-// import { useRouter } from 'expo-router';
 
 // Flutter toolbar / bottom-nav heights (kToolbarHeight / kBottomNavigationBarHeight)
 const kToolbarHeight = 56;
 const kBottomNavigationBarHeight = 56;
 
 export default function ForgotPasswordScreen() {
-  // final AuthController authController = Get.find();
+  const router = useRouter();
+
+  const { isRTL } = useI18n();
   const isLoading = useAuthControllerStore((s) => s.isLoading);
-  // const router = useRouter();
+  const countryCode = useAuthControllerStore((s) => s.countryCode);
 
-  //=======================[Fields Controllers]==============
-  // final TextEditingController payrollAiIdTextEditingController = ...
-  const [payrollAiId, setPayrollAiId] = useState('');
-  const [email, setEmail] = useState('');
-  const [emailError, setEmailError] = useState<string | null>(null);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
-  // double screenSize = MediaQuery.of(context).size.height;
-  const screenSize = screenHeight;
-  // double height = screenSize - kToolbarHeight - kBottomNavigationBarHeight;
-  const height = screenSize - kToolbarHeight - kBottomNavigationBarHeight;
+  const height = screenHeight - kToolbarHeight - kBottomNavigationBarHeight;
 
-  const validateForm = (): boolean => {
-    const err = Validator.emailValid(email);
-    setEmailError(err);
-    return err == null;
-  };
+  const onSend = async () => {
+    const err = Validator.phoneNumberValid(phoneNumber);
+    setPhoneError(err);
+    if (err) return;
 
-  const onSend = () => {
-    if (!validateForm()) {
-      return;
+    const fullPhone = toApiPhone(countryCode.phoneCode, phoneNumber);
+    const ok = await useAuthControllerStore
+      .getState()
+      .requestPasswordResetPhone(fullPhone);
+    if (ok) {
+      // Carry the phone forward; verification-code runs in reset mode.
+      navArgs.set({ phone: fullPhone, resetPassword: true });
+      router.push('/verification-code');
     }
-    // final res = await controller.resetPasswordViaEmail(
-    //     email: emailTextEditingController.text,
-    //     customId: payrollAiIdTextEditingController.text);
-    // if (res) {
-    //   Navigator.push(
-    //     context,
-    //     MaterialPageRoute(
-    //         builder: (context) =>
-    //             const VerificationCodeScreen()),
-    //   );
-    // }
-    // (payrollAiId is collected but the call is commented out in the Flutter source)
-    void payrollAiId;
   };
 
   return (
@@ -69,28 +58,40 @@ export default function ForgotPasswordScreen() {
           ]}
         >
           <BaseText
-            title={t('forgot_password')}
+            title={t('forgot_password_phone_desc')}
             style={[TextStyles.bodyMedium, { color: AppColors.darkGray }]}
             textAlign="center"
           />
           <View style={{ height: Responsive.gap }} />
-          {/* Form */}
+          {/* Phone field */}
           <View style={{ gap: Responsive.gapSmall, width: '100%' }}>
             <AppTextField
-              label={t('your_email')}
-              value={email}
-              onChangeText={setEmail}
+              label={`${t('phone_number')} *`}
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
               borderStyleType="outlineInput"
-              errorText={emailError}
-              validator={(value) => Validator.emailValid(value)}
-              hintText={t('enter_your_email')}
-              keyboardType="email-address"
+              keyboardType="phone-pad"
+              hintText="9xxxxxxxx"
+              errorText={phoneError}
+              validator={(value) => Validator.phoneNumberValid(value)}
+              prefixIcon={
+                <View
+                  style={[
+                    styles.dialCode,
+                    isRTL
+                      ? { borderRightWidth: 0, borderLeftWidth: 1, borderLeftColor: AppColors.dividerColor }
+                      : null,
+                  ]}
+                >
+                  <BaseText title={`+${countryCode.phoneCode}`} style={TextStyles.bodyMedium} />
+                </View>
+              }
             />
           </View>
           <View style={{ height: Responsive.gapLarge }} />
           <LoadingButton loading={isLoading} onPress={onSend}>
             <BaseText
-              title={t('send_otp')}
+              title={t('send_code')}
               style={[TextStyles.headlineMedium, { color: AppColors.white }]}
             />
           </LoadingButton>
@@ -109,5 +110,13 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  dialCode: {
+    minWidth: 56,
+    paddingHorizontal: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRightWidth: 1,
+    borderRightColor: AppColors.dividerColor,
   },
 });

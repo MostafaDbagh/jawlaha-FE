@@ -5,7 +5,7 @@ export { Fonts, TextStyles } from './typography';
 
 // Shared layout constants mirrored from Constant (core/constant.dart) + app_theme.dart
 export const Radii = {
-  textField: 6,
+  textField: 12,
   card: 10,
   button: 10,
 } as const;

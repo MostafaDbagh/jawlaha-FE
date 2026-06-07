@@ -110,6 +110,8 @@ export async function login(email: string, password: string): Promise<CustomResp
     const authModel = data.object as AuthModel;
     if (authModel.token != null && authModel.token.length > 0) {
       await persistAuth(authModel);
+      // Remember credentials for silent auto-login on future launches.
+      await secureStorage.saveCredentials({ email: sanitizedEmail, password });
       await getProfile();
     }
   }
@@ -293,12 +295,90 @@ export async function updateProfile(data: Record<string, any>): Promise<CustomRe
   });
 }
 
-export async function requestOtpLogin(phone: string): Promise<CustomResponse> {
+export async function requestOtpLogin(
+  phone: string,
+  fullName?: string,
+): Promise<CustomResponse> {
+  // fullName is sent only from the sign-up screen so the backend can set a
+  // display name when it auto-creates the account.
+  const data: { phone: string; fullName?: string } = { phone };
+  if (fullName && fullName.trim().length > 0) data.fullName = fullName.trim();
   return await apiClient.postV2({
     subUrl: 'auth/request-otp-login',
-    data: { phone: phone },
+    data,
     needToken: false,
   });
+}
+
+// Phone + password login. Posts to auth/login with the phone as the identifier
+// (the backend accepts `phone` in place of `email` for phone-based accounts).
+// On success persists the token + profile, same as the email login above.
+export async function loginWithPhone(
+  phone: string,
+  password: string,
+): Promise<CustomResponse> {
+  const passwordError = validatePassword(password);
+  if (passwordError != null) {
+    return new CustomResponse(-1, null, passwordError, false);
+  }
+
+  const data = await apiClient.postV2<AuthModel>({
+    subUrl: 'auth/login',
+    needToken: false,
+    data: { phone, password_hash: password },
+    fromJson: parseAuthModel,
+  });
+  if (data.success) {
+    const authModel = data.object as AuthModel;
+    if (authModel.token != null && authModel.token.length > 0) {
+      await persistAuth(authModel);
+      // Remember credentials for silent auto-login on future launches.
+      await secureStorage.saveCredentials({ phone, password });
+      await getProfile();
+    }
+  }
+  return data;
+}
+
+// Phone + password sign up. Posts to auth/register with the phone-based fields;
+// email/dob/gender are left empty since the phone sign-up screen doesn't collect
+// them. On success persists the token + profile and the user is logged straight in.
+export async function registerWithPhone(args: {
+  fullName: string;
+  countryCode: string;
+  phoneNumber: string;
+  password: string;
+}): Promise<CustomResponse> {
+  const passwordError = validatePassword(args.password);
+  if (passwordError != null) {
+    return new CustomResponse(-1, null, passwordError, false);
+  }
+
+  const data = await apiClient.postV2<AuthModel>({
+    subUrl: 'auth/register',
+    needToken: false,
+    data: {
+      username: sanitizeInput(args.fullName),
+      country_code: args.countryCode,
+      phone_number: args.phoneNumber,
+      password_hash: args.password,
+      account_type: 'customer',
+    },
+    fromJson: parseAuthModel,
+  });
+  if (data.success) {
+    const authModel = data.object as AuthModel;
+    if (authModel.token != null && authModel.token.length > 0) {
+      await persistAuth(authModel);
+      // Remember credentials for silent auto-login on future launches.
+      await secureStorage.saveCredentials({
+        phone: args.phoneNumber,
+        password: args.password,
+      });
+      await getProfile();
+    }
+  }
+  return data;
 }
 
 export async function verifyOtpLogin(phone: string, otp: string): Promise<CustomResponse> {
@@ -407,6 +487,29 @@ export async function resetPassword(
   });
 }
 
+// Phone-based password reset. Sends the reset code by SMS to the given phone
+// (mirrors requestPasswordReset but with `phone` instead of `email`).
+export async function requestPasswordResetPhone(phone: string): Promise<CustomResponse> {
+  return await apiClient.postV2({
+    subUrl: 'auth/request-password-reset',
+    data: { phone: phone },
+    needToken: false,
+  });
+}
+
+// Confirms the SMS code and sets the new password (phone variant of resetPassword).
+export async function resetPasswordPhone(
+  phone: string,
+  otp: string,
+  newPassword: string,
+): Promise<CustomResponse> {
+  return await apiClient.postV2({
+    subUrl: 'auth/reset-password',
+    data: { phone: phone, otp: otp, newPassword: newPassword },
+    needToken: false,
+  });
+}
+
 export async function logout(): Promise<CustomResponse> {
   await apiClient.postV2({ subUrl: 'auth/logout', needToken: true });
   // _secureStorageHelper.clearToken() — handled via the auth store logout.
@@ -477,6 +580,8 @@ export const authRepo = {
   updateProfile,
   requestOtpLogin,
   verifyOtpLogin,
+  loginWithPhone,
+  registerWithPhone,
   verifyEmail,
   healthCheck,
   refreshToken,
@@ -484,6 +589,8 @@ export const authRepo = {
   verifyOtp,
   requestPasswordReset,
   resetPassword,
+  requestPasswordResetPhone,
+  resetPasswordPhone,
   logout,
   saveFcmToken,
   saveFCMToken,

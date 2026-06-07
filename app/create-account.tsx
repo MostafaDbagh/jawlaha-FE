@@ -1,326 +1,318 @@
-// Ported from: lib/screens/auth/create_account_screen.dart
+// Phone + password sign up. Full name + phone + password -> home.
+// Registers via auth/register (passes fullName as the display name) and logs
+// the user straight in on success.
 import React, { useState } from 'react';
-import {
-  ScrollView,
-  View,
-  StyleSheet,
-  Modal,
-  Pressable,
-  KeyboardTypeOptions,
-} from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
-import { AppColors, sp, TextStyles } from '@/theme';
-import { quicksand } from '@/theme/typography';
+import { AppColors, w, h, r, sp, TextStyles } from '@/theme';
 import { Responsive } from '@/theme/responsive';
-import { t } from '@/i18n';
+import { t, useI18n } from '@/i18n';
 import { AppImage, BaseText, LoadingButton, AppTextField } from '@/components';
 import { Res } from '@/lib/assets';
 import { Validator } from '@/lib/validators';
-
-import {
-  useAuthControllerStore,
-  GenderType,
-} from '@/features/auth/authStore';
-
-// Mirrors GenderType.getValues() / getTitles() (core/enums/gender_type.dart)
-const GENDER_OPTIONS: { value: GenderType; label: string }[] = [
-  { value: GenderType.male, label: t('male') },
-  { value: GenderType.female, label: t('female') },
-  { value: GenderType.preferNotSay, label: t('prefer_not_say') },
-];
+import { toApiPhone } from '@/lib/phone';
+import { showSnack } from '@/lib/snack';
+import { useAuthControllerStore } from '@/features/auth/authStore';
 
 export default function CreateAccountScreen() {
   const router = useRouter();
 
-  // authController.state.* fields -> store state + setters
+  const { isRTL } = useI18n();
   const isLoading = useAuthControllerStore((s) => s.isLoading);
-  const fullName = useAuthControllerStore((s) => s.fullName);
-  const phoneNumber = useAuthControllerStore((s) => s.phoneNumber);
-  const gender = useAuthControllerStore((s) => s.gender);
-  const email = useAuthControllerStore((s) => s.email);
-  const password = useAuthControllerStore((s) => s.password);
-  const confirmPassword = useAuthControllerStore((s) => s.confirmPassword);
   const countryCode = useAuthControllerStore((s) => s.countryCode);
 
-  const setFullName = useAuthControllerStore((s) => s.setFullName);
-  const setPhoneNumber = useAuthControllerStore((s) => s.setPhoneNumber);
-  const setGender = useAuthControllerStore((s) => s.setGender);
-  const setGenderType = useAuthControllerStore((s) => s.setGenderType);
-  const setEmail = useAuthControllerStore((s) => s.setEmail);
-  const setPassword = useAuthControllerStore((s) => s.setPassword);
-  const setConfirmPassword = useAuthControllerStore((s) => s.setConfirmPassword);
-  const setCountryCode = useAuthControllerStore((s) => s.setCountryCode);
+  const [fullName, setFullName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [agreed, setAgreed] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
-  // GlobalKey<FormState> _formKey -> local errors map + validate-on-submit
-  const [errors, setErrors] = useState<Record<string, string | null>>({});
-  const [genderSheetOpen, setGenderSheetOpen] = useState(false);
+  async function onSignUp() {
+    const nameErr = Validator.emptyText(fullName);
+    const phoneErr = Validator.phoneNumberValid(phoneNumber);
+    const passErr = Validator.emptyText(password, 'plz_enter_valid_password');
+    const confirmErr = Validator.matchPassword(password, confirmPassword);
+    setNameError(nameErr);
+    setPhoneError(phoneErr);
+    setPasswordError(passErr);
+    setConfirmError(confirmErr);
+    if (nameErr || phoneErr || passErr || confirmErr) return;
 
-  const validate = (): boolean => {
-    const next: Record<string, string | null> = {
-      fullName: Validator.emptyText(fullName),
-      phoneNumber: Validator.phoneNumberValid(phoneNumber),
-      gender: Validator.emptyText(gender),
-      // NOTE: the Dart source renders the email field twice; we keep a single
-      // email model so both share the same value/validator faithfully.
-      email: Validator.emailValid(email),
-      // Validator.validatePasswordForPasswordModel just checks the password is
-      // non-empty for the password model -> emptyText.
-      password: Validator.emptyText(password),
-      confirmPassword: Validator.matchPassword(confirmPassword, password),
-    };
-    setErrors(next);
-    return Object.values(next).every((e) => e == null);
-  };
-
-  // Mirrors openSelectItemBottomSheet<GenderType>(...)
-  const openGenderSheet = () => {
-    // final GenderType type = GenderType.male;
-    setGenderSheetOpen(true);
-  };
-
-  const selectGender = (item: { value: GenderType; label: string }) => {
-    setGenderType(item.value);
-    setGender(item.label);
-    setGenderSheetOpen(false);
-  };
-
-  const onCreateAccount = async () => {
-    if (!validate()) {
+    if (!agreed) {
+      showSnack(t('plz_agree_terms'), 'error');
       return;
     }
-    await useAuthControllerStore.getState().getNewCode({ email });
-    router.push('/verification-code' as never);
-  };
+
+    // Backend expects the Syrian leading-0 form: +[dial]0[number]. Registering
+    // with this exact string means a later login (also leading-0) finds the
+    // account — register + login both parse the last 10 digits. See toApiPhone.
+    const fullPhone = toApiPhone(countryCode.phoneCode, phoneNumber);
+    const ok = await useAuthControllerStore.getState().registerWithPhone({
+      fullName: fullName.trim(),
+      countryCode: countryCode.phoneCode,
+      phoneNumber: fullPhone,
+      password,
+    });
+    if (ok) {
+      router.replace('/(tabs)');
+    }
+  }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safeArea}>
       <ScrollView
-        contentContainerStyle={[
-          Responsive.getResponsivePadding(),
-          { gap: Responsive.gapLarge },
-        ]}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.scrollContent, Responsive.getResponsivePadding()]}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Form */}
-        <View style={{ gap: Responsive.gapSmall }}>
-          <BaseText
-            title={t('jawlah')}
-            style={[
-              TextStyles.displayMedium,
-              { color: AppColors.primaryColorTheme, fontFamily: quicksand('500') },
-            ]}
-          />
-          <View style={{ height: Responsive.gapLarge * 2 }} />
-          <BaseText
-            title={t('create_account')}
-            style={[
-              TextStyles.headlineMedium,
-              { color: AppColors.primaryColorTheme, fontFamily: quicksand('500') },
-            ]}
-          />
-          <View style={{ height: Responsive.gapLarge }} />
+        <AppImage
+          source={Res.authLogo}
+          style={{ height: h(48), width: w(140) }}
+          contentFit="contain"
+        />
+        <View style={{ height: h(24) }} />
+        <BaseText title={t('create_account')} style={TextStyles.titleLarge} textAlign="center" />
+        <View style={{ height: h(8) }} />
+        <BaseText
+          title={t('create_account_subtitle')}
+          style={[TextStyles.bodyMedium, { color: AppColors.greyTextColorV3 }]}
+          textAlign="center"
+        />
+        <View style={{ height: h(32) }} />
 
-          {/* Full name */}
+        {/* Full name */}
+        <View style={{ alignSelf: 'stretch' }}>
           <AppTextField
-            prefixIcon={
-              <AppImage source={Res.profileIcon} width={24} height={24} />
-            }
-            label={t('full_name')}
+            label={`${t('full_name')} *`}
             value={fullName}
             onChangeText={setFullName}
             borderStyleType="outlineInput"
-            keyboardType={'name-phone-pad' as KeyboardTypeOptions}
+            hintText={t('enter_your_full_name')}
             validator={(v) => Validator.emptyText(v)}
-            errorText={errors.fullName}
-            hintText={t('last_name')}
+            errorText={nameError}
+            prefixIcon={
+              <Ionicons
+                name="person-outline"
+                size={sp(20)}
+                color={AppColors.hintColor}
+              />
+            }
           />
+        </View>
 
-          {/* Phone number */}
+        <View style={{ height: h(16) }} />
+
+        {/* Phone field */}
+        <View style={{ alignSelf: 'stretch' }}>
           <AppTextField
-            label={t('phone_number')}
+            label={`${t('phone_number')} *`}
             value={phoneNumber}
             onChangeText={setPhoneNumber}
             borderStyleType="outlineInput"
             keyboardType="phone-pad"
-            validator={(v) => Validator.phoneNumberValid(v)}
-            errorText={errors.phoneNumber}
+            hintText="9xxxxxxxx"
+            validator={(value) => Validator.phoneNumberValid(value)}
+            errorText={phoneError}
             prefixIcon={
-              // InitCountryCode (showFlag:false, needNumber:true) ->
-              // simple non-native country-code chip showing the dial code.
-              <Pressable
-                onPress={() => {
-                  // onValuePicked / onSelectedCountry -> update countryCode.
-                  // TODO: country picker (native country_pickers not used in RN).
-                  setCountryCode(countryCode);
-                }}
-                style={styles.countryCode}
+              <View
+                style={[
+                  styles.dialCode,
+                  isRTL
+                    ? { borderRightWidth: 0, borderLeftWidth: 1, borderLeftColor: AppColors.dividerColor }
+                    : null,
+                ]}
               >
-                <BaseText
-                  title={`+${countryCode.phoneCode}`}
-                  color={AppColors.textColorTheme}
-                  size={sp(14)}
+                <BaseText title={`+${countryCode.phoneCode}`} style={TextStyles.bodyMedium} />
+              </View>
+            }
+          />
+        </View>
+
+        <View style={{ height: h(16) }} />
+
+        {/* Password */}
+        <View style={{ alignSelf: 'stretch' }}>
+          <AppTextField
+            label={`${t('password')} *`}
+            value={password}
+            onChangeText={setPassword}
+            borderStyleType="outlineInput"
+            obscureText={!showPassword}
+            hintText={t('enter_your_password')}
+            validator={(v) => Validator.emptyText(v, 'plz_enter_valid_password')}
+            errorText={passwordError}
+            prefixIcon={
+              <Ionicons
+                name="lock-closed-outline"
+                size={sp(20)}
+                color={AppColors.hintColor}
+              />
+            }
+            suffixIcon={
+              <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={sp(20)}
+                  color={AppColors.hintColor}
                 />
               </Pressable>
             }
           />
+        </View>
 
-          {/* Gender */}
-          <Pressable onPress={openGenderSheet}>
-            <View pointerEvents="none">
-              <AppTextField
-                prefixIcon={
-                  <AppImage source={Res.genderIcon} width={24} height={24} />
-                }
-                label={t('gender')}
-                enabled={false}
-                value={gender}
-                onChangeText={setGender}
-                borderStyleType="outlineInput"
-                validator={(v) => Validator.emptyText(v)}
-                errorText={errors.gender}
-                hintText={t('select_gender')}
-              />
-            </View>
-          </Pressable>
+        <View style={{ height: h(16) }} />
 
-          {/* Email */}
+        {/* Confirm password */}
+        <View style={{ alignSelf: 'stretch' }}>
           <AppTextField
-            prefixIcon={
-              <AppImage source={Res.emailIcon} width={24} height={24} />
-            }
-            label={t('email')}
-            value={email}
-            onChangeText={setEmail}
-            borderStyleType="outlineInput"
-            keyboardType="email-address"
-            validator={(v) => Validator.emailValid(v)}
-            errorText={errors.email}
-            hintText="example@email.com"
-          />
-
-          {/* Email (duplicated in the Flutter source — kept faithfully) */}
-          <AppTextField
-            prefixIcon={
-              <AppImage source={Res.emailIcon} width={24} height={24} />
-            }
-            label={t('email')}
-            value={email}
-            onChangeText={setEmail}
-            borderStyleType="outlineInput"
-            keyboardType="email-address"
-            validator={(v) => Validator.emailValid(v)}
-            errorText={errors.email}
-            hintText="example@email.com"
-          />
-
-          {/* Password */}
-          <AppTextField
-            prefixIcon={
-              <AppImage source={Res.lockIcon} width={24} height={24} />
-            }
-            label={t('password')}
-            value={password}
-            onChangeText={setPassword}
-            borderStyleType="outlineInput"
-            validator={(v) => Validator.emptyText(v ?? '')}
-            errorText={errors.password}
-            obscureText
-            hintText="***********"
-          />
-
-          {/* Confirm password */}
-          <AppTextField
-            prefixIcon={
-              <AppImage source={Res.lockIcon} width={24} height={24} />
-            }
-            label={t('confirm_password')}
+            label={`${t('confirm_password')} *`}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             borderStyleType="outlineInput"
-            validator={(v) => Validator.matchPassword(v ?? '', password)}
-            errorText={errors.confirmPassword}
-            obscureText
-            hintText="***********"
+            obscureText={!showConfirm}
+            hintText={t('confirm_your_password')}
+            validator={(v) => Validator.matchPassword(password, v)}
+            errorText={confirmError}
+            prefixIcon={
+              <Ionicons
+                name="lock-closed-outline"
+                size={sp(20)}
+                color={AppColors.hintColor}
+              />
+            }
+            suffixIcon={
+              <Pressable onPress={() => setShowConfirm((v) => !v)} hitSlop={8}>
+                <Ionicons
+                  name={showConfirm ? 'eye-off-outline' : 'eye-outline'}
+                  size={sp(20)}
+                  color={AppColors.hintColor}
+                />
+              </Pressable>
+            }
           />
         </View>
 
-        {/* Buttons */}
-        <View style={{ gap: Responsive.gap }}>
-          <LoadingButton loading={isLoading} onPress={onCreateAccount}>
-            <BaseText
-              title={t('create_account')}
-              style={[TextStyles.headlineMedium, { color: AppColors.white }]}
-            />
-          </LoadingButton>
+        <View style={{ height: h(20) }} />
 
-          {/* CustomElevatedButton(onPressed: Get.back, color: darkGray) */}
-          <LoadingButton color={AppColors.darkGray} onPress={() => router.back()}>
+        {/* Agree to terms */}
+        <Pressable
+          style={[
+            styles.termsRow,
+            { flexDirection: 'row', direction: isRTL ? 'rtl' : 'ltr' },
+          ]}
+          onPress={() => setAgreed((v) => !v)}
+          hitSlop={6}
+        >
+          <View
+            style={[styles.checkbox, agreed && styles.checkboxChecked]}
+          >
+            {agreed && <BaseText title="✓" style={styles.checkmark} />}
+          </View>
+          <BaseText
+            title={`${t('i_agree_to')} `}
+            style={[TextStyles.bodyMedium, { color: AppColors.greyTextColorV3 }]}
+          />
+          <Pressable onPress={() => router.push('/privacy-policy')} hitSlop={6}>
             <BaseText
-              title={t('back')}
+              title={t('terms_and_conditions')}
+              style={[TextStyles.bodyMedium, styles.termsLink]}
+            />
+          </Pressable>
+        </Pressable>
+
+        <View style={{ height: h(28) }} />
+
+        <View style={{ alignSelf: 'stretch' }}>
+          <LoadingButton loading={isLoading} onPress={onSignUp}>
+            <BaseText
+              title={t('sign_up')}
               style={[TextStyles.headlineMedium, { color: AppColors.white }]}
             />
           </LoadingButton>
         </View>
-      </ScrollView>
 
-      {/* openSelectItemBottomSheet<GenderType> fallback (simple RN modal) */}
-      <Modal
-        visible={genderSheetOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setGenderSheetOpen(false)}
-      >
+        <View style={{ height: h(20) }} />
+
+        {/* Already have an account? Log in */}
         <Pressable
-          style={styles.sheetBackdrop}
-          onPress={() => setGenderSheetOpen(false)}
+          style={[
+            styles.loginRow,
+            { flexDirection: 'row', direction: isRTL ? 'rtl' : 'ltr' },
+          ]}
+          onPress={() => router.replace('/login')}
+          hitSlop={8}
         >
-          <Pressable style={styles.sheet}>
-            <BaseText
-              title={t('select_gender')}
-              style={[TextStyles.titleLarge, { marginBottom: Responsive.gap }]}
-            />
-            {GENDER_OPTIONS.map((item) => (
-              <Pressable
-                key={item.value}
-                style={styles.sheetItem}
-                onPress={() => selectGender(item)}
-              >
-                <BaseText title={item.label} size={sp(16)} />
-              </Pressable>
-            ))}
-          </Pressable>
+          <BaseText
+            title={`${t('already_have_account')} `}
+            style={[TextStyles.bodyMedium, { color: AppColors.greyTextColorV3 }]}
+          />
+          <BaseText title={t('login')} style={[TextStyles.bodyMedium, styles.termsLink]} />
         </Pressable>
-      </Modal>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
+  safeArea: {
     flex: 1,
     backgroundColor: AppColors.backgroundColor,
   },
-  countryCode: {
-    width: 90,
-    height: 50,
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: h(24),
   },
-  sheetBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
+  dialCode: {
+    minWidth: w(64),
+    paddingHorizontal: w(10),
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRightWidth: 1,
+    borderRightColor: AppColors.dividerColor,
   },
-  sheet: {
-    backgroundColor: AppColors.white,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    paddingHorizontal: Responsive.padding,
-    paddingVertical: Responsive.gapLarge,
+  termsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    flexWrap: 'wrap',
   },
-  sheetItem: {
-    paddingVertical: Responsive.gapSmall,
+  checkbox: {
+    width: r(20),
+    height: r(20),
+    borderRadius: r(5),
+    borderWidth: 1.5,
+    borderColor: AppColors.greyTextColorV3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginEnd: w(10),
+  },
+  checkboxChecked: {
+    backgroundColor: AppColors.primaryColorTheme,
+    borderColor: AppColors.primaryColorTheme,
+  },
+  checkmark: {
+    color: AppColors.white,
+    fontSize: 13,
+    lineHeight: 16,
+  },
+  termsLink: {
+    color: AppColors.primaryColorTheme,
+    textDecorationLine: 'underline',
+  },
+  loginRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

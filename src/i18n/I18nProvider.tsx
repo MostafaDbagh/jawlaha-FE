@@ -23,6 +23,17 @@ export const getCurrentLang = (): LangCode => currentLang;
 export const isRTL = (): boolean => currentLang === 'ar';
 
 /**
+ * flexDirection for a horizontal row that should read in the app's language
+ * direction. This is a manual-RTL app: the native layout is pinned to LTR at
+ * startup (see I18nProvider — allowRTL(false)/forceRTL(false)) so React Native
+ * never auto-mirrors `row`. Direction is therefore driven purely from the app
+ * language here: LTR rows render in source order, RTL rows reverse them.
+ */
+export function rowDirection(appRTL: boolean = currentLang === 'ar'): 'row' | 'row-reverse' {
+  return appRTL ? 'row-reverse' : 'row';
+}
+
+/**
  * Translate a key. Mirrors GetX `'key'.tr`.
  * Falls back to the English table, then to the raw key (like GetX does).
  * Supports `@name` style params via the optional `params` map.
@@ -58,7 +69,12 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
       const initial: LangCode = stored === 'ar' || stored === 'en' ? stored : 'en';
       currentLang = initial;
       setLangState(initial);
-      I18nManager.allowRTL(true);
+      // Manual RTL: direction is driven from the app language in JS (rowDirection
+      // + per-component isRTL checks), so pin the native layout to LTR and never
+      // let it auto-mirror `row`. Otherwise an Arabic device locale flips our
+      // English rows. (forceRTL change may need a full app restart to take hold.)
+      I18nManager.allowRTL(false);
+      if (I18nManager.isRTL) I18nManager.forceRTL(false);
       setReady(true);
     })();
   }, []);

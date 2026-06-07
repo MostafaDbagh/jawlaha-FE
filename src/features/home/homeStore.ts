@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { repository } from '@/data/repository';
 import { prefs } from '@/lib/storage';
 import { showSnack } from '@/lib/snack';
+import { useCityStore } from '@/features/location/cityStore';
 import { createPaginateReqEntity } from '@/types/entities';
 import { CategoryModel } from '@/types/category';
 import { VendorModel } from '@/types/vendor';
@@ -168,11 +169,9 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
   getCurrentLocation: async () => {
     // For now, load from stored address or default
     const storedAddress = (await prefs.getAddressTitle()) ?? '';
-    if (storedAddress.length > 0) {
-      set({ addressTitle: storedAddress });
-    } else {
-      set({ addressTitle: 'Damascus, Syria' }); // Default or "Select Location"
-    }
+    // New users have no location yet — leave it empty so the header prompts them
+    // to enter one (no fake default city).
+    set({ addressTitle: storedAddress });
     // TODO: Implement real Geolocator logic here to update address
   },
 
@@ -268,19 +267,19 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
 
   getNearbyBranches: async () => {
     try {
-      set({ isNearbyBranchesLoading: true });
-      // Default location: central Damascus (Syria). [[jawlaha-cash-on-delivery-only]]
-      const lat = 33.5138;
-      const lng = 36.2765;
-      const radius = 15.0;
-
-      const result = await repository.getNearbyBranches(lat, lng, radius);
-
-      if (result.success && Array.isArray(result.object)) {
-        set({ nearbyBranches: (result.object as BranchModel[]) });
+      // Restaurants are scoped to the customer's selected city — a Latakia
+      // customer must not see Damascus restaurants. With no city chosen yet we
+      // show nothing and the home prompts the user to pick one.
+      const city = useCityStore.getState().city;
+      if (!city) {
+        set({ nearbyBranches: [], isNearbyBranchesLoading: false });
+        return;
       }
+      set({ isNearbyBranchesLoading: true });
+      const result = await repository.getBranches({ city: city.en });
+      set({ nearbyBranches: result.success && Array.isArray(result.object) ? (result.object as BranchModel[]) : [] });
     } catch (e) {
-      // Leave list empty; the UI shows its empty/loading state.
+      set({ nearbyBranches: [] });
     } finally {
       set({ isNearbyBranchesLoading: false });
     }

@@ -12,6 +12,7 @@ import {
 import { AppColors, sp, Radii } from '@/theme';
 import { Responsive } from '@/theme/responsive';
 import { QuicksandFamily, quicksand } from '@/theme/typography';
+import { isRTL, rowDirection } from '@/i18n';
 import { BaseText } from './BaseText';
 
 export type BorderStyleType = 'outlineInput' | 'underline' | 'none';
@@ -62,12 +63,16 @@ export function AppTextField(props: AppTextFieldProps) {
     onTap,
     width,
     fillColor,
-    textAlign = 'left',
+    textAlign,
     onSubmitEditing,
     containerStyle,
     style,
     registerValidate,
   } = props;
+
+  const rtl = isRTL();
+  // Default text/label alignment follows the language unless the caller forces it.
+  const effectiveTextAlign = textAlign ?? (rtl ? 'right' : 'left');
 
   const [localError, setLocalError] = useState<string | null>(null);
   const [focused, setFocused] = useState(false);
@@ -89,7 +94,7 @@ export function AppTextField(props: AppTextFieldProps) {
     ? AppColors.errorColor
     : focused
       ? AppColors.primaryColorTheme
-      : AppColors.lightGray;
+      : AppColors.dividerColor;
 
   const borderStyle: ViewStyle =
     borderStyleType === 'underline'
@@ -103,12 +108,14 @@ export function AppTextField(props: AppTextFieldProps) {
       {label != null && (
         <BaseText
           title={label}
-          style={[{ color: AppColors.primaryColorTheme, fontSize: sp(16), fontFamily: quicksand('400') }]}
+          textAlign={rtl ? 'right' : 'left'}
+          style={[{ color: AppColors.textColorTheme, fontSize: sp(14), fontFamily: quicksand('500'), writingDirection: rtl ? 'rtl' : 'ltr' }]}
         />
       )}
       <View
         style={[
           styles.inputRow,
+          { flexDirection: rowDirection(rtl) },
           borderStyle,
           { backgroundColor: fillColor ?? AppColors.white },
         ]}
@@ -125,7 +132,7 @@ export function AppTextField(props: AppTextFieldProps) {
           onPressIn={onTap}
           multiline={maxLines > 1}
           numberOfLines={maxLines}
-          textAlign={textAlign}
+          textAlign={effectiveTextAlign}
           onFocus={() => setFocused(true)}
           onBlur={() => {
             setFocused(false);
@@ -138,7 +145,13 @@ export function AppTextField(props: AppTextFieldProps) {
         {suffixIcon ? <View style={styles.affix}>{suffixIcon}</View> : null}
       </View>
       {shownError ? (
-        <BaseText title={shownError} size={sp(12)} color={AppColors.red} />
+        <BaseText
+          title={shownError}
+          size={sp(12)}
+          color={AppColors.red}
+          textAlign={rtl ? 'right' : 'left'}
+          style={{ writingDirection: rtl ? 'rtl' : 'ltr' }}
+        />
       ) : null}
     </View>
   );
@@ -148,12 +161,14 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 52,
+    gap: 8,
     paddingHorizontal: Responsive.paddingSmall,
   },
   input: {
     flex: 1,
-    paddingVertical: Responsive.paddingTiny,
-    fontSize: sp(14),
+    paddingVertical: 12,
+    fontSize: sp(15),
     fontFamily: QuicksandFamily.regular,
     color: AppColors.textColorTheme,
   },

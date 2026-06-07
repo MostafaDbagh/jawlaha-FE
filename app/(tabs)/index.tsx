@@ -1,6 +1,6 @@
 // Home tab — Keeta-style: Categories -> Offers for you -> Popular brands -> Restaurants.
 // The search bar type-filters the categories / brands / restaurant lists.
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   ScrollView,
@@ -17,7 +17,7 @@ import { useRouter } from 'expo-router';
 import { AppColors, w, h, r, sp } from '@/theme';
 import { quicksand } from '@/theme/typography';
 import { Responsive } from '@/theme/responsive';
-import { t } from '@/i18n';
+import { t, useI18n } from '@/i18n';
 import { BaseText } from '@/components';
 import {
   LocationHeader,
@@ -28,11 +28,19 @@ import {
 } from '@/components/cards';
 import type { RestaurantBadge } from '@/components/cards/RestaurantRowCard';
 import { navArgs } from '@/store/navArgs';
+import { useAuthStore } from '@/store/authStore';
 import { useHomeStore } from '@/features/home/homeStore';
+import { useCityStore } from '@/features/location/cityStore';
+import { cityLabel } from '@/lib/cities';
 import type { BranchModel } from '@/types/branch';
 
 export default function HomeScreen() {
   const router = useRouter();
+
+  const { lang } = useI18n();
+  const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
+  const city = useCityStore((s) => s.city);
+  const cityHydrated = useCityStore((s) => s.hydrated);
 
   const addressTitle = useHomeStore((s) => s.addressTitle);
   const banners = useHomeStore((s) => s.banners);
@@ -60,15 +68,18 @@ export default function HomeScreen() {
     });
     return !q ? unique : unique.filter((c) => (c.name ?? '').toLowerCase().includes(q));
   }, [categories, q]);
-  const filteredBrands = useMemo(
-    () =>
-      !q
-        ? popularVendors
-        : popularVendors.filter((v) =>
-            [v.name, v.description].some((f) => (f ?? '').toLowerCase().includes(q)),
-          ),
-    [popularVendors, q],
-  );
+  const filteredBrands = useMemo(() => {
+    // Only brands that actually have a branch in the selected city, so the home
+    // never surfaces a restaurant from another city.
+    const inCity = popularVendors.filter((v) =>
+      nearbyBranches.some((b) => b.vendorName === v.name),
+    );
+    return !q
+      ? inCity
+      : inCity.filter((v) =>
+          [v.name, v.description].some((f) => (f ?? '').toLowerCase().includes(q)),
+        );
+  }, [popularVendors, nearbyBranches, q]);
   const filteredBranches = useMemo(
     () =>
       !q
@@ -82,6 +93,21 @@ export default function HomeScreen() {
   useEffect(() => {
     useHomeStore.getState().getHomeData();
   }, []);
+
+  // Re-fetch restaurants whenever the selected city changes (incl. first pick).
+  useEffect(() => {
+    useHomeStore.getState().getNearbyBranches();
+  }, [city]);
+
+  // First-run nudge: once we know there's no saved city, ask a signed-in user to
+  // pick one (guests are routed to login by the header instead).
+  const promptedCity = useRef(false);
+  useEffect(() => {
+    if (cityHydrated && !city && isLoggedIn && !promptedCity.current) {
+      promptedCity.current = true;
+      router.push('/select-city');
+    }
+  }, [cityHydrated, city, isLoggedIn, router]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -115,8 +141,10 @@ export default function HomeScreen() {
       >
         <View style={{ height: h(10) }} />
         <LocationHeader
-          address={addressTitle}
+          address={city ? cityLabel(city, lang) : addressTitle}
+          onPressLocation={isLoggedIn ? () => router.push('/select-city') : undefined}
           onPressNotifications={() => router.push('/notifications')}
+          onPressLogin={isLoggedIn ? undefined : () => router.push('/login')}
         />
         <View style={{ height: h(16) }} />
         <View style={styles.fullWidth}>
@@ -237,8 +265,22 @@ export default function HomeScreen() {
           </>
         )}
 
+        {/* Restaurants are city-scoped — prompt a signed-in user with no city. */}
+        {isLoggedIn && cityHydrated && !city && (
+          <Pressable style={styles.cityPrompt} onPress={() => router.push('/select-city')}>
+            <MaterialIcons name="location-city" size={sp(30)} color={AppColors.primaryColor} />
+            <View style={{ height: h(8) }} />
+            <BaseText title={t('select_city_title')} style={styles.cityPromptTitle} textAlign="center" />
+            <BaseText title={t('select_city_subtitle')} style={styles.cityPromptSub} textAlign="center" />
+            <View style={{ height: h(12) }} />
+            <View style={styles.cityPromptBtn}>
+              <BaseText title={t('select_city')} style={styles.cityPromptBtnText} />
+            </View>
+          </Pressable>
+        )}
+
         {/* 4. Restaurants */}
-        {(isNearbyBranchesLoading || filteredBranches.length > 0) && (
+        {city && (isNearbyBranchesLoading || filteredBranches.length > 0) && (
           <>
             <View style={{ height: h(20) }} />
             <SectionHeader title={t('restaurants')} onViewAllTap={() => router.push('/all-vendors')} />
@@ -266,6 +308,24 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: AppColors.white },
   fullWidth: { width: '100%' },
+  cityPrompt: {
+    marginTop: h(28),
+    alignItems: 'center',
+    padding: w(20),
+    borderRadius: r(16),
+    borderWidth: 1,
+    borderColor: AppColors.lightGreyV2,
+    backgroundColor: AppColors.whiteApplication,
+  },
+  cityPromptTitle: { fontSize: sp(16), fontFamily: quicksand('700'), color: AppColors.textColorTheme },
+  cityPromptSub: { fontSize: sp(13), color: AppColors.textColor2, marginTop: h(4) },
+  cityPromptBtn: {
+    paddingHorizontal: w(24),
+    paddingVertical: h(10),
+    borderRadius: r(24),
+    backgroundColor: AppColors.primaryColorTheme,
+  },
+  cityPromptBtnText: { color: AppColors.white, fontSize: sp(14), fontFamily: quicksand('700') },
   dotsRow: {
     flexDirection: 'row',
     alignItems: 'center',

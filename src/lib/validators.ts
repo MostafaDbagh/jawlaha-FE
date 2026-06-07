@@ -13,7 +13,6 @@ export function replaceArabicNumber(input: string): string {
 }
 
 const EMAIL_RE = /^[\w.+-]+@[\w-]+\.[\w.-]+$/;
-const PHONE_RE = /^\+?[0-9]{6,15}$/;
 const NUM_RE = /^-?\d+(\.\d+)?$/;
 
 export interface PasswordValidatorModel {
@@ -33,13 +32,15 @@ export const Validator = {
     return null;
   },
 
+  // Syrian mobile number, entered without the +963 dial code (shown separately).
+  // Valid form: 9 digits starting with 9 (i.e. domestic 09XXXXXXXX without the 0).
   phoneNumberValid(value?: string | null, validMessage = 'plz_enter_valid_phone_number'): string | null {
-    if (value != null) {
-      const v = replaceArabicNumber(value);
-      if (!PHONE_RE.test(v.trim())) return t(validMessage);
-      return null;
-    }
-    return t(validMessage);
+    if (value == null) return t(validMessage);
+    const v = replaceArabicNumber(value).trim().replace(/^\+/, '');
+    if (v.length === 0 || /\D/.test(v)) return t(validMessage);
+    if (v.startsWith('0')) return t('phone_no_leading_zero');
+    if (v.length !== 9 || !v.startsWith('9')) return t('phone_invalid_length');
+    return null;
   },
 
   emailValid(value?: string | null, validMessage = 'plz_enter_valid_email'): string | null {

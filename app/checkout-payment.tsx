@@ -25,6 +25,13 @@ import { useCartStore } from '@/features/cart/cartStore';
 import { useOrdersStore } from '@/features/orders/ordersStore';
 import { navArgs, useNavArgs } from '@/store/navArgs';
 
+// Glyph per delivery type for the location double-check row.
+const TYPE_GLYPH: Record<'home' | 'work' | 'other', keyof typeof MaterialIcons.glyphMap> = {
+  home: 'home',
+  work: 'work',
+  other: 'location-on',
+};
+
 export default function CheckoutPaymentScreen() {
   const router = useRouter();
   const { isRTL } = useI18n();
@@ -39,6 +46,17 @@ export default function CheckoutPaymentScreen() {
   const [note, setNote] = useState<string>(
     (args?.delivery_note as string) ?? '',
   );
+
+  // Delivery location double-check: the user must tick a checkbox confirming the
+  // selected delivery type (Home/Office) before the order can be placed, so a
+  // wrong address pick at the previous step gets caught here.
+  const deliveryType = (args?.delivery_type as string) ?? '';
+  const deliveryIcon = (args?.delivery_icon as 'home' | 'work' | 'other') ?? 'other';
+  const deliveryAddress = (args?.delivery_address as string) ?? '';
+  const [locationConfirmed, setLocationConfirmed] = useState(false);
+  const confirmLabel = deliveryType
+    ? t('confirm_delivery_to', { type: deliveryType })
+    : t('confirm_delivery_location');
 
   // No delivery fee data from the backend cart yet -> 0 until known.
   const deliveryFee = 0;
@@ -75,6 +93,11 @@ export default function CheckoutPaymentScreen() {
   );
 
   const onConfirm = async () => {
+    // Must confirm the delivery location (Home/Office) first.
+    if (!locationConfirmed) {
+      showSnack(t('confirm_location_required'), 'info');
+      return;
+    }
     // Only signed-in users can place an order.
     if (!useAuthStore.getState().isLoggedIn) {
       showSnack(t('login_required_to_order'), 'info');
@@ -228,11 +251,52 @@ export default function CheckoutPaymentScreen() {
 
         <View style={{ height: h(24) }} />
 
+        {/* Delivery location double-check — tap to confirm Home/Office. */}
+        <Pressable
+          onPress={() => setLocationConfirmed((v) => !v)}
+          style={[styles.confirmLocationRow, locationConfirmed && styles.confirmLocationRowOn]}
+        >
+          <View style={[styles.checkbox, locationConfirmed && styles.checkboxOn]}>
+            {locationConfirmed ? (
+              <Ionicons name="checkmark" size={sp(16)} color={AppColors.white} />
+            ) : null}
+          </View>
+          <View style={{ width: w(10) }} />
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <MaterialIcons
+                name={TYPE_GLYPH[deliveryIcon]}
+                size={sp(18)}
+                color={AppColors.primaryColorTheme}
+              />
+              <View style={{ width: w(6) }} />
+              <BaseText
+                title={confirmLabel}
+                size={sp(14)}
+                fontWeight="600"
+                color={AppColors.textColorTheme}
+              />
+            </View>
+            {deliveryAddress ? (
+              <>
+                <View style={{ height: h(2) }} />
+                <BaseText
+                  title={deliveryAddress}
+                  size={sp(12)}
+                  color={AppColors.textColor2}
+                />
+              </>
+            ) : null}
+          </View>
+        </Pressable>
+
+        <View style={{ height: h(16) }} />
+
         {/* Confirm Order Button */}
         <Pressable
           onPress={onConfirm}
           disabled={isPlacing}
-          style={[styles.confirmBtn, isPlacing && { opacity: 0.7 }]}
+          style={[styles.confirmBtn, (isPlacing || !locationConfirmed) && { opacity: 0.6 }]}
         >
           {isPlacing ? (
             <ActivityIndicator color={AppColors.white} />
@@ -317,5 +381,32 @@ const styles = StyleSheet.create({
     borderRadius: r(8),
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  confirmLocationRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: w(12),
+    borderRadius: r(8),
+    borderWidth: 1,
+    borderColor: AppColors.lightGreyV2,
+    backgroundColor: AppColors.white,
+  },
+  confirmLocationRowOn: {
+    borderColor: AppColors.primaryColorTheme,
+    backgroundColor: 'rgba(35,90,94,0.06)',
+  },
+  checkbox: {
+    width: sp(22),
+    height: sp(22),
+    borderRadius: r(6),
+    borderWidth: 1.5,
+    borderColor: AppColors.lightGreyV2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: AppColors.white,
+  },
+  checkboxOn: {
+    backgroundColor: AppColors.primaryColorTheme,
+    borderColor: AppColors.primaryColorTheme,
   },
 });

@@ -1,6 +1,9 @@
-// Ported from Flutter:
-//   lib/screens/profile_screens/support_report_screen.dart (SupportReportScreen)
-import React, { useState, useCallback, useRef } from 'react';
+// Order complaint screen ("الدعم والشكاوي"). The customer files a complaint
+// about one of their orders — they pick the order's reference number, choose a
+// category, and describe the problem. Submits to POST /complaints on jawlahapp.
+// (Replaces the former Flutter ticket port, whose `tickets` endpoint the
+// jawlahapp backend never implemented.)
+import React, { useEffect, useCallback, useRef, useState } from 'react';
 import {
   View,
   ScrollView,
@@ -15,54 +18,48 @@ import { useRouter } from 'expo-router';
 import { AppColors, w, h, r, sp, TextStyles } from '@/theme';
 import { Responsive } from '@/theme/responsive';
 import { t } from '@/i18n';
-import {
-  AppImage,
-  BaseText,
-  AppTextField,
-  LoadingButton,
-  AppBar,
-} from '@/components';
-import { Res } from '@/lib/assets';
+import { BaseText, AppTextField, LoadingButton, AppBar } from '@/components';
 import { Validator } from '@/lib/validators';
-import { useProfileStore } from '@/features/profile/profileStore';
+import { showSnack } from '@/lib/snack';
+import { navArgs, useNavArgs } from '@/store/navArgs';
+import { useOrdersStore, type Order } from '@/features/orders/ordersStore';
+import {
+  useComplaintsStore,
+  COMPLAINT_CATEGORIES,
+} from '@/features/complaints/complaintsStore';
 
-// Mirrors core/enums/ticket_issue_type.dart (TicketIssueType.values -> getTitle())
-const ticketIssueValues = [
-  'technical_issue',
-  'design_issue',
-  'login_issue',
-  'device_compatibility_issue',
-  'data_privacy_concern',
-  'notification_issue',
-  'other',
-];
-const ticketIssueLabels = [
-  'Technical Issue',
-  'Design Issue',
-  'Login Issue',
-  'Device Compatibility Issue',
-  'Data Privacy Concern',
-  'Notification Issue',
-  'Other',
-];
+const shortRef = (orderId: string) => orderId.slice(0, 8);
+
+function formatOrderDate(value?: string): string {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' });
+}
 
 export default function SupportReportScreen() {
   const router = useRouter();
 
-  // controller = Get.find<ProfileController>()
-  const settingLoading = useProfileStore((s) => s.settingLoading);
-  const submitSupportReport = useProfileStore((s) => s.submitSupportReport);
-  const clearTicketState = useProfileStore((s) => s.clearTicketState);
-  const getMyTickets = useProfileStore((s) => s.getMyTickets);
-  const pickFile = useProfileStore((s) => s.pickFile);
+  const submitting = useComplaintsStore((s) => s.submitting);
+  const submitComplaint = useComplaintsStore((s) => s.submitComplaint);
+  const orders = useOrdersStore((s) => s.orders);
 
-  // TextEditingControllers -> useState
-  const [issueType, setIssueType] = useState('');
-  const [issueText, setIssueText] = useState(''); // issueTextEditingController
-  const [dscText, setDscText] = useState(''); // dscTextEditingController
-  const [fileText, setFileText] = useState(''); // fileTextEditingController
+  // Selected order reference.
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [orderRefCode, setOrderRefCode] = useState<string>(''); // short code sent to API
+  const [orderRefText, setOrderRefText] = useState<string>(''); // what the field shows
 
-  // Form key -> registered field validators
+  // Complaint category + free text.
+  const [category, setCategory] = useState('');
+  const [categoryText, setCategoryText] = useState('');
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
+
+  // Bottom sheets.
+  const [orderSheetOpen, setOrderSheetOpen] = useState(false);
+  const [categorySheetOpen, setCategorySheetOpen] = useState(false);
+
+  // Field validators (mirrors the form-key pattern used across the app).
   const validators = useRef<Record<string, () => boolean>>({});
   const registerValidate = useCallback(
     (key: string) => (fn: () => boolean) => {
@@ -70,16 +67,52 @@ export default function SupportReportScreen() {
     },
     [],
   );
-  const validateForm = () =>
-    Object.values(validators.current).every((fn) => fn());
+  const validateForm = () => Object.values(validators.current).every((fn) => fn());
 
-  // select_item_bottom_sheet (openSelectItemBottomSheet) -> simple RN Modal
-  const [sheetOpen, setSheetOpen] = useState(false);
+  // Load the user's orders for the reference picker, and pre-fill when arriving
+  // from a specific order's "report a problem" action. navArgs is consumed once
+  // and cleared so it can't stale-fill a later visit from the profile menu.
+  const consumedArgs = useRef(false);
+  useEffect(() => {
+    useOrdersStore.getState().loadOrders();
+    if (consumedArgs.current) return;
+    consumedArgs.current = true;
+    const args = useNavArgs.getState().args;
+    const preId = args?.complaintOrderId as string | undefined;
+    if (preId) {
+      const ref = (args?.complaintOrderRef as string | undefined) || shortRef(preId);
+      const vendor = (args?.complaintVendor as string | undefined) || '';
+      selectOrder(preId, ref, vendor);
+      navArgs.clear();
+    }
+  }, []);
 
-  const onSelectIssue = (item: string, label: string) => {
-    setIssueType(item);
-    setIssueText(label);
-    setSheetOpen(false); // Navigator.pop(context)
+  const selectOrder = (id: string, ref: string, vendor: string) => {
+    setOrderId(id);
+    setOrderRefCode(ref);
+    setOrderRefText(vendor ? `#${ref} — ${vendor}` : `#${ref}`);
+    setOrderSheetOpen(false);
+  };
+
+  const onSelectCategory = (value: string, label: string) => {
+    setCategory(value);
+    setCategoryText(label);
+    setCategorySheetOpen(false);
+  };
+
+  const onSubmit = async () => {
+    if (!validateForm()) return;
+    const ok = await submitComplaint({
+      category,
+      subject: subject.trim() || categoryText,
+      message: message.trim(),
+      orderId,
+      orderReference: orderRefCode,
+    });
+    if (ok) {
+      showSnack(t('complaint_submitted'), 'success');
+      router.back();
+    }
   };
 
   return (
@@ -94,23 +127,44 @@ export default function SupportReportScreen() {
           { flex: 1, paddingTop: Responsive.gapLarge, paddingBottom: Responsive.gapLarge },
         ]}
       >
-        {/* Column(crossAxisAlignment: start) */}
         <View style={{ flex: 1, alignItems: 'flex-start' }}>
-          {/* Expanded -> SingleChildScrollView */}
           <View style={{ flex: 1, alignSelf: 'stretch' }}>
             <ScrollView
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ gap: Responsive.gapLarge }}
+              keyboardShouldPersistTaps="handled"
             >
-              {/* Form */}
               <View style={{ gap: Responsive.gapLarge }}>
-                {/* CustomInkWell -> opens select item bottom sheet */}
-                <Pressable onPress={() => setSheetOpen(true)}>
+                {/* Order reference number — opens the order picker */}
+                <Pressable onPress={() => setOrderSheetOpen(true)}>
                   <View pointerEvents="none">
                     <AppTextField
-                      label={t('about')}
-                      value={issueText}
-                      onChangeText={setIssueText}
+                      label={t('order_reference_label')}
+                      value={orderRefText}
+                      onChangeText={() => {}}
+                      borderStyleType="outlineInput"
+                      validator={(value) => Validator.emptyText(value, 'order_reference_required')}
+                      enabled={false}
+                      suffixIcon={
+                        <Ionicons
+                          name="receipt-outline"
+                          color={AppColors.hintColor}
+                          size={Responsive.iconSmall}
+                        />
+                      }
+                      hintText={t('select_order_hint')}
+                      registerValidate={registerValidate('order')}
+                    />
+                  </View>
+                </Pressable>
+
+                {/* Complaint category — opens the category picker */}
+                <Pressable onPress={() => setCategorySheetOpen(true)}>
+                  <View pointerEvents="none">
+                    <AppTextField
+                      label={t('complaint_category_label')}
+                      value={categoryText}
+                      onChangeText={() => {}}
                       borderStyleType="outlineInput"
                       validator={(value) => Validator.emptyText(value)}
                       enabled={false}
@@ -121,90 +175,46 @@ export default function SupportReportScreen() {
                           size={Responsive.iconSmall}
                         />
                       }
-                      hintText={t('about')}
-                      registerValidate={registerValidate('issue')}
+                      hintText={t('select_category_hint')}
+                      registerValidate={registerValidate('category')}
                     />
                   </View>
                 </Pressable>
 
+                {/* Subject (optional) */}
                 <AppTextField
-                  label={t('about')}
-                  value={dscText}
-                  onChangeText={setDscText}
-                  hintText={t('about')}
+                  label={`${t('complaint_subject_label')} ${t('optional_label')}`}
+                  value={subject}
+                  onChangeText={setSubject}
+                  hintText={t('complaint_subject_hint')}
+                  borderStyleType="outlineInput"
+                />
+
+                {/* Description */}
+                <AppTextField
+                  label={t('complaint_desc_label')}
+                  value={message}
+                  onChangeText={setMessage}
+                  hintText={t('complaint_desc_hint')}
                   validator={(value) => Validator.emptyText(value)}
                   keyboardType="default"
                   borderStyleType="outlineInput"
-                  maxLines={10}
-                  registerValidate={registerValidate('dsc')}
+                  maxLines={8}
+                  registerValidate={registerValidate('message')}
                 />
               </View>
-
-              {/* CustomInkWell -> pickFile (optional) */}
-              <Pressable
-                onPress={async () => {
-                  const res = await pickFile();
-                  if (res != null) {
-                    // fileTextEditingController.text = res.files.single.name;
-                    setFileText((res as any)?.name ?? '');
-                  }
-                }}
-              >
-                <View pointerEvents="none">
-                  <AppTextField
-                    label={`${t('about')} (Optional)`}
-                    enabled={false}
-                    value={fileText}
-                    onChangeText={setFileText}
-                    validator={(value) => Validator.emptyText(value)}
-                    borderStyleType="outlineInput"
-                    suffixIcon={
-                      <AppImage
-                        source={Res.appleIcon}
-                        style={{
-                          height: Responsive.iconSmall,
-                          width: Responsive.iconSmall,
-                        }}
-                      />
-                    }
-                    hintText={t('about')}
-                  />
-                </View>
-              </Pressable>
             </ScrollView>
           </View>
 
-          {/* Bottom buttons column */}
+          {/* Bottom buttons */}
           <View style={{ alignSelf: 'stretch', gap: Responsive.gapSmall }}>
-            <LoadingButton
-              loading={settingLoading}
-              onPress={async () => {
-                if (!validateForm()) {
-                  return;
-                }
-                const res = await submitSupportReport({
-                  issueType: issueType,
-                  message: dscText,
-                });
-                if (res) {
-                  clearTicketState();
-                  getMyTickets();
-                  router.back(); // Get.find<NavigationController>().handleBackPress()
-                }
-              }}
-            >
+            <LoadingButton loading={submitting} onPress={onSubmit}>
               <BaseText
                 title={t('submit')}
                 style={[TextStyles.headlineMedium, { color: AppColors.white }]}
               />
             </LoadingButton>
-
-            <LoadingButton
-              onPress={() => {
-                router.back(); // handleBackPress()
-              }}
-              color={AppColors.red}
-            >
+            <LoadingButton onPress={() => router.back()} color={AppColors.red}>
               <BaseText
                 title={t('cancel')}
                 style={[TextStyles.headlineMedium, { color: AppColors.white }]}
@@ -214,14 +224,104 @@ export default function SupportReportScreen() {
         </View>
       </View>
 
-      {/* SelectItemBottomSheet (showKaBottomSheet) -> RN Modal */}
+      {/* Order picker bottom sheet */}
       <Modal
-        visible={sheetOpen}
+        visible={orderSheetOpen}
         transparent
         animationType="slide"
-        onRequestClose={() => setSheetOpen(false)}
+        onRequestClose={() => setOrderSheetOpen(false)}
       >
-        <Pressable style={styles.backdrop} onPress={() => setSheetOpen(false)}>
+        <Pressable style={styles.backdrop} onPress={() => setOrderSheetOpen(false)}>
+          <Pressable style={styles.sheet} onPress={() => {}}>
+            <View style={{ height: h(28) }} />
+            <View style={{ paddingHorizontal: w(26) }}>
+              <BaseText
+                title={t('select_order_title')}
+                fontWeight="700"
+                color={AppColors.primaryColorTheme}
+                size={sp(16)}
+              />
+            </View>
+            <View style={{ height: h(20) }} />
+            <ScrollView style={{ maxHeight: h(360) }} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 22 }}>
+              {orders.length === 0 ? (
+                <View style={{ paddingVertical: h(24), alignItems: 'center' }}>
+                  <BaseText
+                    title={t('no_orders_to_reference')}
+                    size={sp(13)}
+                    color={AppColors.textColor2}
+                    textAlign="center"
+                  />
+                </View>
+              ) : (
+                orders.map((order: Order, index) => {
+                  const ref = shortRef(order.order_id);
+                  const isSelected = order.order_id === orderId;
+                  return (
+                    <React.Fragment key={order.order_id}>
+                      {index > 0 ? (
+                        <View style={{ paddingVertical: 7 }}>
+                          <View style={styles.divider} />
+                        </View>
+                      ) : null}
+                      <Pressable
+                        onPress={() => selectOrder(order.order_id, ref, order.vendor_name ?? '')}
+                        style={styles.orderRow}
+                      >
+                        <View
+                          style={[
+                            styles.radioOuter,
+                            {
+                              borderColor: isSelected
+                                ? AppColors.primaryColorTheme
+                                : AppColors.borderColor,
+                            },
+                          ]}
+                        >
+                          <View
+                            style={[
+                              styles.radioInner,
+                              {
+                                backgroundColor: isSelected
+                                  ? AppColors.primaryColorTheme
+                                  : AppColors.transparent,
+                              },
+                            ]}
+                          />
+                        </View>
+                        <View style={{ width: 10 }} />
+                        <View style={{ flex: 1, alignItems: 'flex-start' }}>
+                          <BaseText
+                            title={`#${ref}`}
+                            size={sp(14)}
+                            fontWeight="700"
+                            color={AppColors.primaryColorTheme}
+                          />
+                          <BaseText
+                            title={`${order.vendor_name ?? ''}${order.created_at ? ` · ${formatOrderDate(order.created_at)}` : ''}`}
+                            size={sp(12)}
+                            maxLines={1}
+                            color={AppColors.textColor2}
+                          />
+                        </View>
+                      </Pressable>
+                    </React.Fragment>
+                  );
+                })
+              )}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Category picker bottom sheet */}
+      <Modal
+        visible={categorySheetOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCategorySheetOpen(false)}
+      >
+        <Pressable style={styles.backdrop} onPress={() => setCategorySheetOpen(false)}>
           <Pressable style={styles.sheet} onPress={() => {}}>
             <View style={{ height: h(28) }} />
             <View style={{ paddingHorizontal: w(26) }}>
@@ -234,9 +334,9 @@ export default function SupportReportScreen() {
             </View>
             <View style={{ height: h(32) }} />
             <View style={{ paddingHorizontal: 24 }}>
-              {ticketIssueLabels.map((label, index) => {
-                const value = ticketIssueValues[index];
-                const isSelected = value === issueType;
+              {COMPLAINT_CATEGORIES.map((value, index) => {
+                const label = t(`complaint_category_${value}`);
+                const isSelected = value === category;
                 return (
                   <React.Fragment key={value}>
                     {index > 0 ? (
@@ -245,9 +345,7 @@ export default function SupportReportScreen() {
                       </View>
                     ) : null}
                     <Pressable
-                      onPress={() => {
-                        if (!isSelected) onSelectIssue(value, label);
-                      }}
+                      onPress={() => onSelectCategory(value, label)}
                       style={styles.itemRow}
                     >
                       <View
@@ -309,6 +407,11 @@ const styles = StyleSheet.create({
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  orderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
   },
   radioOuter: {
     height: 16,

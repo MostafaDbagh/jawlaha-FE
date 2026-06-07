@@ -82,9 +82,12 @@ export async function getVendor(id: number): Promise<CustomResponse> {
 //-------------------[Branches Repository]---------------
 //-------------------------------------------------------
 
-export async function getBranches(): Promise<CustomResponse> {
+export async function getBranches(opts?: { city?: string }): Promise<CustomResponse> {
   return await apiClient.getV2({
     subUrl: 'branches',
+    // Backend filters branches by city (?city=) — used so a customer only sees
+    // restaurants in their own city. Sends the English city name.
+    query: opts?.city ? { city: opts.city, limit: 50 } : undefined,
     isListOfModel: true,
     fromJson: parseBranchModel,
     needToken: false,

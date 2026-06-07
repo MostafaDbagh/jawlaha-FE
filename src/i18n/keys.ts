@@ -49,6 +49,8 @@ export const LocalKeys = {
   forgot_password_question: "forgot_password_question",
   register_now: "register_now",
   not_have_account: "not_have_account",
+  browse_as_guest: "browse_as_guest",
+  login_required_guest: "login_required_guest",
   lets: "lets",
   start_in_lets: "start_in_lets",
   already_have_an_account: "already_have_an_account",

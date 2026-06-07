@@ -56,6 +56,10 @@ export default function CheckoutAddressScreen() {
       ...navArgs.get(),
       delivery_address: selected.details,
       delivery_note: instructions.trim() || undefined,
+      // Carried to the payment page so the user double-checks the delivery
+      // location (Home/Office) before the order is placed.
+      delivery_type: selected.title,
+      delivery_icon: selected.icon,
     });
     router.push('/checkout-payment');
   };

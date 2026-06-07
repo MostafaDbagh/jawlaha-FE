@@ -432,6 +432,34 @@ export default function OrderDetailsScreen() {
                 />
               </Pressable>
             )}
+
+            {/* Report a problem with this order — pre-fills the complaint form
+                with this order's reference number. */}
+            <View style={{ height: h(12) }} />
+            <Pressable
+              onPress={() => {
+                navArgs.set({
+                  complaintOrderId: order.order_id,
+                  complaintOrderRef: order.order_id.slice(0, 8),
+                  complaintVendor: order.vendor_name ?? '',
+                });
+                router.push('/support-report');
+              }}
+              style={styles.reportButton}
+            >
+              <Ionicons
+                name="alert-circle-outline"
+                size={sp(18)}
+                color={AppColors.secondMainColor}
+              />
+              <View style={{ width: w(8) }} />
+              <BaseText
+                title={t('report_order_problem')}
+                size={sp(15)}
+                color={AppColors.secondMainColor}
+                fontWeight="600"
+              />
+            </Pressable>
             <View style={{ height: h(32) }} />
           </View>
         </ScrollView>
@@ -534,6 +562,16 @@ const styles = StyleSheet.create({
     height: h(50),
     backgroundColor: AppColors.primaryColor,
     borderRadius: r(8),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reportButton: {
+    alignSelf: 'stretch',
+    height: h(48),
+    borderRadius: r(8),
+    borderWidth: 1,
+    borderColor: AppColors.secondMainColor,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },

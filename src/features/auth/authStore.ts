@@ -53,6 +53,14 @@ function showServerMessages(messages: string[]) {
   }
 }
 
+// Pull the dev OTP out of a request-otp / password-reset response. For
+// token-less endpoints the API client returns the raw envelope as `object`, so
+// the code lives at `object.data.devOtp` (falls back to a flattened shape).
+function extractDevOtp(object: unknown): string | null {
+  const obj = object as { devOtp?: string; data?: { devOtp?: string } } | null;
+  return obj?.data?.devOtp ?? obj?.devOtp ?? null;
+}
+
 interface AuthStoreState {
   // ---- AuthState fields (auth_state.dart) ----
   countryCode: Country; // Rx<Country> countryCode = initCountry("963").obs
@@ -87,6 +95,7 @@ interface AuthStoreState {
   loginRQ: (args: { email: string; password: string }) => Promise<boolean>;
   getProfile: () => Promise<boolean>;
   initSettings: () => Promise<void>;
+  silentLogin: () => Promise<boolean>;
   logoutFromCurrentToken: () => Promise<void>;
   getNewCode: (args: { email: string }) => Promise<boolean>;
   verifyCode: (args: { email: string; code: string }) => Promise<boolean>;
@@ -97,14 +106,27 @@ interface AuthStoreState {
     password: string;
   }) => Promise<boolean>;
   updateProfile: (data: Record<string, any>) => Promise<boolean>;
-  requestOtpLogin: (phone: string) => Promise<boolean>;
+  requestOtpLogin: (phone: string, fullName?: string) => Promise<boolean>;
   verifyOtpLogin: (phone: string, otp: string) => Promise<boolean>;
+  loginWithPhone: (phone: string, password: string) => Promise<boolean>;
+  registerWithPhone: (args: {
+    fullName: string;
+    countryCode: string;
+    phoneNumber: string;
+    password: string;
+  }) => Promise<boolean>;
   refreshToken: () => Promise<boolean>;
   resendOtp: (email: string) => Promise<boolean>;
   verifyOtp: (email: string, otp: string) => Promise<boolean>;
   requestPasswordReset: (email: string) => Promise<boolean>;
   resetPassword: (args: {
     email: string;
+    otp: string;
+    newPassword: string;
+  }) => Promise<boolean>;
+  requestPasswordResetPhone: (phone: string) => Promise<boolean>;
+  resetPasswordPhone: (args: {
+    phone: string;
     otp: string;
     newPassword: string;
   }) => Promise<boolean>;
@@ -185,13 +207,36 @@ export const useAuthControllerStore = create<AuthStoreState>((set, get) => ({
       if (token && token.length > 0) {
         // LocalStaticVar.token = token -> global auth store token.
         await useGlobalAuthStore.getState().setToken(token);
-        await get().getProfile();
-        // Get.offAllNamed(Routes.main) — navigation handled by the caller/router.
-      } else {
-        // Get.offAllNamed(Routes.main) — navigation handled by the caller/router.
+        // Validate the stored session. A short-lived access token self-heals via
+        // the refresh-token flow inside getProfile; if that succeeds we're done.
+        const ok = await get().getProfile();
+        if (ok) return;
       }
+      // No stored token, or the token + refresh token have both expired. Fall
+      // back to a silent re-login from saved credentials so the user is never
+      // asked to sign in again after the first registration/login.
+      await get().silentLogin();
     } catch (e) {
       // Get.offAllNamed(Routes.main) — navigation handled by the caller/router.
+    }
+  },
+
+  // Re-authenticate transparently using credentials saved at the last successful
+  // login/registration. Used at startup so a returning user lands straight in the
+  // app — like Keeta — without ever seeing the login screen. Talks to the
+  // repository directly to avoid surfacing error snackbars on a silent attempt.
+  async silentLogin() {
+    try {
+      const creds = await secureStorage.getCredentials();
+      if (!creds) return false;
+      const res = creds.phone
+        ? await repository.loginWithPhone(creds.phone, creds.password)
+        : creds.email
+          ? await repository.login(creds.email, creds.password)
+          : null;
+      return res?.success ?? false;
+    } catch (e) {
+      return false;
     }
   },
 
@@ -278,15 +323,15 @@ export const useAuthControllerStore = create<AuthStoreState>((set, get) => ({
     return false;
   },
 
-  async requestOtpLogin(phone) {
+  async requestOtpLogin(phone, fullName) {
     try {
       set({ isLoading: true });
-      const res = await repository.requestOtpLogin(phone);
+      const res = await repository.requestOtpLogin(phone, fullName);
       if (res.success) {
         // Dev convenience: backend returns the OTP (and master code) so the
         // verification screen can prefill it without a real SMS gateway.
-        const devOtp = (res.object as { devOtp?: string } | null)?.devOtp ?? null;
-        set({ lastDevOtp: devOtp });
+        // The OTP lives in the response envelope's `data` object.
+        set({ lastDevOtp: extractDevOtp(res.object) });
         return true;
       } else {
         showServerMessages([res.msg]);
@@ -303,6 +348,40 @@ export const useAuthControllerStore = create<AuthStoreState>((set, get) => ({
     try {
       set({ isLoading: true });
       const res = await repository.verifyOtpLogin(phone, otp);
+      if (res.success) {
+        return true;
+      } else {
+        showServerMessages([res.msg]);
+      }
+    } catch (e) {
+      showServerMessages([String(e)]);
+    } finally {
+      set({ isLoading: false });
+    }
+    return false;
+  },
+
+  async loginWithPhone(phone, password) {
+    try {
+      set({ isLoading: true });
+      const res = await repository.loginWithPhone(phone, password);
+      if (res.success) {
+        return true;
+      } else {
+        showServerMessages([res.msg]);
+      }
+    } catch (e) {
+      showServerMessages([String(e)]);
+    } finally {
+      set({ isLoading: false });
+    }
+    return false;
+  },
+
+  async registerWithPhone(args) {
+    try {
+      set({ isLoading: true });
+      const res = await repository.registerWithPhone(args);
       if (res.success) {
         return true;
       } else {
@@ -380,6 +459,43 @@ export const useAuthControllerStore = create<AuthStoreState>((set, get) => ({
     try {
       set({ isLoading: true });
       const res = await repository.resetPassword(email, otp, newPassword);
+      if (res.success) {
+        return true;
+      } else {
+        showServerMessages([res.msg]);
+      }
+    } catch (e) {
+      showServerMessages([String(e)]);
+    } finally {
+      set({ isLoading: false });
+    }
+    return false;
+  },
+
+  async requestPasswordResetPhone(phone) {
+    try {
+      set({ isLoading: true });
+      const res = await repository.requestPasswordResetPhone(phone);
+      if (res.success) {
+        // Same dev convenience as OTP login: prefill the SMS code on the
+        // verification screen (the reset endpoint returns devOtp in dev).
+        set({ lastDevOtp: extractDevOtp(res.object) });
+        return true;
+      } else {
+        showServerMessages([res.msg]);
+      }
+    } catch (e) {
+      showServerMessages([String(e)]);
+    } finally {
+      set({ isLoading: false });
+    }
+    return false;
+  },
+
+  async resetPasswordPhone({ phone, otp, newPassword }) {
+    try {
+      set({ isLoading: true });
+      const res = await repository.resetPasswordPhone(phone, otp, newPassword);
       if (res.success) {
         return true;
       } else {

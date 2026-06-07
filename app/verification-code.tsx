@@ -16,7 +16,7 @@ import { Responsive } from '@/theme/responsive';
 import { t } from '@/i18n';
 import { BaseText, TextButton, LoadingButton, AppBar } from '@/components';
 import { showSnack } from '@/lib/snack';
-import { useNavArgs } from '@/store/navArgs';
+import { useNavArgs, navArgs } from '@/store/navArgs';
 import { useAuthControllerStore } from '@/features/auth/authStore';
 
 const PIN_LENGTH = 6;
@@ -26,6 +26,8 @@ export default function VerificationCodeScreen() {
 
   const navArguments = useNavArgs((s) => s.args);
   const phone: string = (navArguments?.phone as string) ?? '';
+  // Reset-password flow reuses this screen but verifies via the reset endpoint.
+  const resetPassword: boolean = navArguments?.resetPassword === true;
 
   const isLoading = useAuthControllerStore((s) => s.isLoading);
   const lastDevOtp = useAuthControllerStore((s) => s.lastDevOtp);
@@ -62,6 +64,12 @@ export default function VerificationCodeScreen() {
       showSnack(t('plz_enter_valid_phone_number'), 'error');
       return;
     }
+    if (resetPassword) {
+      // The code is verified together with the new password on the next screen.
+      navArgs.set({ phone, otp: code, resetPassword: true });
+      router.push('/reset-new-password');
+      return;
+    }
     const ok = await useAuthControllerStore.getState().verifyOtpLogin(phone, code);
     if (ok) {
       router.replace('/(tabs)');
@@ -69,7 +77,9 @@ export default function VerificationCodeScreen() {
   };
 
   const onResend = async () => {
-    const ok = await useAuthControllerStore.getState().requestOtpLogin(phone);
+    const ok = resetPassword
+      ? await useAuthControllerStore.getState().requestPasswordResetPhone(phone)
+      : await useAuthControllerStore.getState().requestOtpLogin(phone);
     if (ok) showSnack(t('resend_code'), 'success');
   };
 
@@ -79,7 +89,7 @@ export default function VerificationCodeScreen() {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={[styles.container, Responsive.getResponsivePadding()]}>
           <BaseText
-            title={t('verify_phone_dsc')}
+            title={resetPassword ? t('verify_reset_code_dsc') : t('verify_phone_dsc')}
             style={[TextStyles.bodyMedium, { color: AppColors.darkGray }]}
             textAlign="center"
           />

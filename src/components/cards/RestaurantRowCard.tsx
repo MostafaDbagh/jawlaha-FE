@@ -39,7 +39,6 @@ export function RestaurantRowCard({
 
   const meta: string[] = [];
   if (deliveryTime) meta.push(deliveryTime);
-  if (distanceKm != null) meta.push(`${distanceKm.toFixed(1)} km`);
 
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>

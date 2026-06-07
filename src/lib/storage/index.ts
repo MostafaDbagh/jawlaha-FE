@@ -61,6 +61,16 @@ export const storage = {
 // Secure token storage (mirrors SecureStorageHelper).
 const TOKEN_KEY = 'secure_access_token';
 const REFRESH_TOKEN_KEY = 'secure_refresh_token';
+// Saved sign-in credentials for silent auto-login. After the user registers /
+// logs in once, these let the app transparently re-authenticate on every launch
+// — even after the access + refresh tokens expire — so it never asks again.
+const CREDENTIALS_KEY = 'secure_login_credentials';
+
+export interface SavedCredentials {
+  phone?: string;
+  email?: string;
+  password: string;
+}
 
 export const secureStorage = {
   async saveToken(token: string): Promise<void> {
@@ -93,8 +103,29 @@ export const secureStorage = {
     await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY).catch(() => {});
     await storage.setString(StorageKeys.ACCESS_TOKEN, '');
   },
+  // Persist the credentials used for silent auto-login (stored in the OS
+  // keychain/keystore via SecureStore). Saved on successful login/registration.
+  async saveCredentials(creds: SavedCredentials): Promise<void> {
+    await SecureStore.setItemAsync(CREDENTIALS_KEY, JSON.stringify(creds)).catch(() => {});
+  },
+  async getCredentials(): Promise<SavedCredentials | null> {
+    const raw = await SecureStore.getItemAsync(CREDENTIALS_KEY).catch(() => null);
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw) as SavedCredentials;
+      return parsed?.password ? parsed : null;
+    } catch {
+      return null;
+    }
+  },
+  async clearCredentials(): Promise<void> {
+    await SecureStore.deleteItemAsync(CREDENTIALS_KEY).catch(() => {});
+  },
   async clearAllData(): Promise<void> {
     await this.clearToken();
+    // Drop saved credentials too, otherwise an explicit logout would be
+    // immediately undone by the silent auto-login on next launch.
+    await this.clearCredentials();
   },
 };
 

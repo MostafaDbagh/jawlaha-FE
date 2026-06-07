@@ -88,31 +88,6 @@ export default function SettingsScreen() {
           </View>
 
           <View style={{ height: h(20) }} />
-
-          {/* Dark Mode */}
-          <View style={styles.row}>
-            <View style={{ flex: 1 }}>
-              <BaseText
-                title={t('dark_mode')}
-                size={sp(15)}
-                color={AppColors.textColorTheme}
-              />
-              <View style={{ height: h(2) }} />
-              <BaseText
-                title={s.darkMode ? t('on_label') : t('off_label')}
-                size={sp(13)}
-                color={AppColors.textColor2}
-              />
-            </View>
-            <Switch
-              value={s.darkMode}
-              onValueChange={(v) => s.set({ darkMode: v })}
-              trackColor={trackColor}
-              thumbColor={AppColors.white}
-            />
-          </View>
-
-          <View style={{ height: h(20) }} />
           <View style={styles.innerDivider} />
           <View style={{ height: h(20) }} />
 

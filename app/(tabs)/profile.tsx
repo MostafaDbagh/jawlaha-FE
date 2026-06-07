@@ -3,7 +3,6 @@ import React from 'react';
 import {
   View,
   ScrollView,
-  Image,
   Pressable,
   StyleSheet,
 } from 'react-native';
@@ -32,6 +31,10 @@ export default function ProfileScreen() {
 
   // final AuthController authController = Get.find();
   const user = useAuthStore((s) => s.user);
+  const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
+
+  // Guests may only use Settings; the rest of the menu requires an account.
+  const guestDisabled = !isLoggedIn;
 
   return (
     <View style={styles.scaffold}>
@@ -45,35 +48,6 @@ export default function ProfileScreen() {
           <View style={styles.headerGradient}>
             <SafeAreaView edges={['top']}>
               <View style={styles.headerPadding}>
-                {/* Profile Picture */}
-                <View style={styles.avatarStack}>
-                  <View style={styles.avatarCircle}>
-                    {/* Person-icon fallback (shown when no profile image). */}
-                    <View style={styles.avatarFallback}>
-                      <Ionicons
-                        name="person"
-                        size={sp(50)}
-                        color={AppColors.textColor2}
-                      />
-                    </View>
-                    {!!(user as any)?.profile_image && (
-                      <Image
-                        source={{ uri: (user as any).profile_image }}
-                        style={styles.avatarImage}
-                        resizeMode="cover"
-                      />
-                    )}
-                  </View>
-                  <View style={styles.cameraBadge}>
-                    <MaterialIcons
-                      name="camera-alt"
-                      size={sp(16)}
-                      color={AppColors.white}
-                    />
-                  </View>
-                </View>
-                <View style={{ height: h(16) }} />
-
                 {/* User Name */}
                 <BaseText
                   title={user?.name ?? 'Guest'}
@@ -94,15 +68,6 @@ export default function ProfileScreen() {
                     style={styles.membershipText}
                   />
                 </View>
-                <View style={{ height: h(20) }} />
-
-                {/* Edit Profile Button */}
-                <Pressable style={styles.editButton} onPress={() => router.push('/edit-profile')}>
-                  <BaseText
-                    title={t('edit_profile')}
-                    style={styles.editButtonText}
-                  />
-                </Pressable>
               </View>
             </SafeAreaView>
           </View>
@@ -114,21 +79,19 @@ export default function ProfileScreen() {
             <ProfileMenuItem
               icon="person-outline"
               title={t('personal_info')}
-              onPress={() => router.push('/edit-profile')}
+              disabled={guestDisabled}
+              onPress={() => router.push('/personal-info')}
             />
             <ProfileMenuItem
               icon="location-outline"
               title={t('saved_addresses')}
+              disabled={guestDisabled}
               onPress={() => router.push('/saved-addresses')}
-            />
-            <ProfileMenuItem
-              icon="card-outline"
-              title={t('payment_methods')}
-              onPress={() => showSnack(t('cash_on_delivery'), 'info')}
             />
             <ProfileMenuItem
               icon="heart-outline"
               title={t('favorites')}
+              disabled={guestDisabled}
               onPress={() => showSnack(t('coming_soon'), 'info')}
             />
             <ProfileMenuItem
@@ -139,17 +102,10 @@ export default function ProfileScreen() {
             <ProfileMenuItem
               icon="notifications-outline"
               title={t('notifications')}
+              disabled={guestDisabled}
               onPress={() => {
                 // Get.find<NavigationController>().navigateInTab(Routes.notification);
                 router.push('/notifications');
-              }}
-            />
-            <ProfileMenuItem
-              icon="lock-closed-outline"
-              title={t('change_password')}
-              onPress={() => {
-                // Get.find<NavigationController>().navigateInTab(Routes.changePassword);
-                router.push('/change-password');
               }}
             />
             <ProfileMenuItem
@@ -161,22 +117,6 @@ export default function ProfileScreen() {
               }}
             />
             <ProfileMenuItem
-              icon="information-circle-outline"
-              title={t('about_us')}
-              onPress={() => {
-                // Get.find<NavigationController>().navigateInTab(Routes.aboutUs);
-                router.push('/about-us');
-              }}
-            />
-            <ProfileMenuItem
-              icon="mail-outline"
-              title={t('contact_us')}
-              onPress={() => {
-                // Get.find<NavigationController>().navigateInTab(Routes.contentUs);
-                router.push('/contact-us');
-              }}
-            />
-            <ProfileMenuItem
               icon="headset-outline"
               title={t('support_report')}
               onPress={() => {
@@ -184,29 +124,36 @@ export default function ProfileScreen() {
                 router.push('/support-report' as any);
               }}
             />
+            <ProfileMenuItem
+              icon="help-circle-outline"
+              title={t('help_support')}
+              onPress={() => router.push('/help-support' as any)}
+            />
           </View>
 
           <View style={{ height: h(20) }} />
 
-          {/* Sign Out Button */}
-          <Pressable
-            onPress={async () => {
-              // await authController.logoutFromCurrentToken();
-              // Get.find<NavigationController>().logout();
-              await useAuthStore.getState().logout();
-              router.replace('/login');
-            }}
-          >
-            <View style={styles.signOutCard}>
-              <Ionicons
-                name="log-out-outline"
-                color={AppColors.secondMainColor}
-                size={sp(22)}
-              />
-              <View style={{ width: w(12) }} />
-              <BaseText title={t('sign_out')} style={styles.signOutText} />
-            </View>
-          </Pressable>
+          {/* Sign Out Button — guests have no session to end, so hide it. */}
+          {isLoggedIn && (
+            <Pressable
+              onPress={async () => {
+                // await authController.logoutFromCurrentToken();
+                // Get.find<NavigationController>().logout();
+                await useAuthStore.getState().logout();
+                router.replace('/login');
+              }}
+            >
+              <View style={styles.signOutCard}>
+                <Ionicons
+                  name="log-out-outline"
+                  color={AppColors.secondMainColor}
+                  size={sp(22)}
+                />
+                <View style={{ width: w(12) }} />
+                <BaseText title={t('sign_out')} style={styles.signOutText} />
+              </View>
+            </Pressable>
+          )}
 
           <View style={{ height: h(30) }} />
         </View>
@@ -228,52 +175,6 @@ const styles = StyleSheet.create({
     paddingVertical: h(30),
     alignItems: 'center',
   },
-  avatarStack: {
-    width: w(100),
-    height: w(100),
-  },
-  avatarCircle: {
-    width: w(100),
-    height: w(100),
-    borderRadius: w(50),
-    borderWidth: 3,
-    borderColor: AppColors.white,
-    overflow: 'hidden',
-    backgroundColor: AppColors.lightGreyV2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: hexWithOpacity(AppColors.black, 0.1),
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 10,
-    shadowOpacity: 1,
-    elevation: 4,
-  },
-  avatarFallback: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  cameraBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: w(32),
-    height: w(32),
-    borderRadius: w(16),
-    backgroundColor: AppColors.primaryColor,
-    borderWidth: 2,
-    borderColor: AppColors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   userName: {
     fontSize: sp(20),
     fontFamily: quicksand('bold'),
@@ -292,20 +193,6 @@ const styles = StyleSheet.create({
     fontSize: sp(13),
     fontFamily: quicksand('600'),
     color: AppColors.textColorTheme,
-  },
-  editButton: {
-    minWidth: w(180),
-    height: h(48),
-    paddingHorizontal: w(20),
-    borderRadius: r(24),
-    backgroundColor: AppColors.primaryColor,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  editButtonText: {
-    fontSize: sp(15),
-    fontFamily: quicksand('bold'),
-    color: AppColors.white,
   },
   menuCard: {
     marginHorizontal: w(16),

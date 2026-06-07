@@ -6,14 +6,18 @@ import { queryClient } from '@/lib/queryClient';
 import { I18nProvider } from '@/i18n';
 import { SnackProvider } from '@/lib/snack';
 import { useAuthStore } from '@/store/authStore';
+import { useCityStore } from '@/features/location/cityStore';
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   const hydrate = useAuthStore((s) => s.hydrate);
+  const hydrateCity = useCityStore((s) => s.hydrate);
   const [, setReady] = useState(false);
 
   useEffect(() => {
+    // Load the saved city alongside auth so the home knows it on first render.
+    hydrateCity();
     hydrate().finally(() => setReady(true));
-  }, [hydrate]);
+  }, [hydrate, hydrateCity]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

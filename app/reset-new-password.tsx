@@ -1,71 +1,89 @@
-// Ported from: lib/screens/auth/reset_new_password_screen.dart
-// ResetNewPasswordScreen (StatefulWidget) -> expo-router screen.
+// Reset new password (phone flow). Reads phone + OTP from navArgs, sets a new
+// password via auth/reset-password, then returns to login.
 import React, { useState } from 'react';
-import { ScrollView, View, StyleSheet } from 'react-native';
+import { ScrollView, View, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
-import { AppColors } from '@/theme';
+import { AppColors, sp, TextStyles } from '@/theme';
 import { Responsive } from '@/theme/responsive';
-import { TextStyles } from '@/theme';
 import { t } from '@/i18n';
 import { AppBar, BaseText, LoadingButton, AppTextField } from '@/components';
 import { Validator } from '@/lib/validators';
-// import { useRouter } from 'expo-router';
+import { showSnack } from '@/lib/snack';
+import { useNavArgs } from '@/store/navArgs';
 import { useAuthControllerStore } from '@/features/auth/authStore';
 
 export default function ResetNewPasswordScreen() {
-  // const router = useRouter();
+  const router = useRouter();
   const isLoading = useAuthControllerStore((s) => s.isLoading);
 
-  //=======================[Fields Controllers]==============
+  const navArguments = useNavArgs((s) => s.args);
+  const phone: string = (navArguments?.phone as string) ?? '';
+  const otp: string = (navArguments?.otp as string) ?? '';
+
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [errors, setErrors] = useState<{
     newPassword?: string | null;
     confirmPassword?: string | null;
   }>({});
 
-  // double screenSize = MediaQuery.of(context).size.height;
-  // double height = screenSize - kToolbarHeight - kBottomNavigationBarHeight;
-  // -> the ScrollView fills the available height via minHeight:'100%' below.
-
   const validateForm = (): boolean => {
-    const newPasswordErr = Validator.validatePasswordForPasswordModel(newPassword);
-    const confirmPasswordErr = Validator.matchPassword(confirmPassword, newPassword);
+    const newPasswordErr = Validator.emptyText(newPassword, 'plz_enter_valid_password');
+    const confirmPasswordErr = Validator.matchPassword(newPassword, confirmPassword);
     setErrors({ newPassword: newPasswordErr, confirmPassword: confirmPasswordErr });
     return !newPasswordErr && !confirmPasswordErr;
   };
 
   const onSave = async () => {
     if (!validateForm()) return;
-    // final res = await authController.changePasswordViaCode(
-    //     email: authController.state.emailForForgotPassword,
-    //     code: authController.state.verifyCodeForRestPassword,
-    //     confirmPassword:
-    //         confirmPasswordTextEditingController.text,
-    //     password: newPasswordTextEditingController.text);
-    // if (res) {
-    //   Navigator.pushAndRemoveUntil(
-    //     context,
-    //     MaterialPageRoute(
-    //         builder: (context) => const LoginScreen()),
-    //     (route) => false,
-    //   );
-    // }
+    const ok = await useAuthControllerStore.getState().resetPasswordPhone({
+      phone,
+      otp,
+      newPassword,
+    });
+    if (ok) {
+      showSnack(t('password_reset_success'), 'success');
+      router.replace('/login');
+    }
   };
+
+  const eyeIcon = (visible: boolean, toggle: () => void) => (
+    <Pressable onPress={toggle} hitSlop={8}>
+      <Ionicons
+        name={visible ? 'eye-off-outline' : 'eye-outline'}
+        size={sp(20)}
+        color={AppColors.hintColor}
+      />
+    </Pressable>
+  );
+
+  const lockIcon = (
+    <Ionicons name="lock-closed-outline" size={sp(20)} color={AppColors.hintColor} />
+  );
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <AppBar title={t('forgot_password')} />
+      <AppBar title={t('reset_password')} />
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         <View
           style={[
             styles.container,
             Responsive.getResponsivePadding(),
-            // height: screenSize - kToolbarHeight - kBottomNavigationBarHeight
             { minHeight: '100%' },
           ]}
         >
+          <BaseText
+            title={t('reset_password_desc')}
+            style={[TextStyles.bodyMedium, { color: AppColors.darkGray }]}
+            textAlign="center"
+          />
+          <View style={{ height: Responsive.gapLarge }} />
+
           {/* Form */}
           <View style={styles.form}>
             <AppTextField
@@ -73,25 +91,24 @@ export default function ResetNewPasswordScreen() {
               value={newPassword}
               onChangeText={setNewPassword}
               borderStyleType="outlineInput"
-              validator={(value) =>
-                Validator.validatePasswordForPasswordModel(value ?? '')
-              }
+              obscureText={!showPassword}
+              hintText={t('enter_your_password')}
+              validator={(v) => Validator.emptyText(v, 'plz_enter_valid_password')}
               errorText={errors.newPassword}
-              obscureText
-              hintText="*********"
+              prefixIcon={lockIcon}
+              suffixIcon={eyeIcon(showPassword, () => setShowPassword((v) => !v))}
             />
             <AppTextField
               label={t('confirm_password')}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               borderStyleType="outlineInput"
-              validator={(value) =>
-                Validator.matchPassword(value ?? '', newPassword)
-              }
+              obscureText={!showConfirm}
+              hintText={t('confirm_your_password')}
+              validator={(v) => Validator.matchPassword(newPassword, v ?? '')}
               errorText={errors.confirmPassword}
-              hintText="*********"
-              obscureText
-              keyboardType="default"
+              prefixIcon={lockIcon}
+              suffixIcon={eyeIcon(showConfirm, () => setShowConfirm((v) => !v))}
             />
           </View>
           <View style={{ height: Responsive.gapLarge }} />
@@ -114,7 +131,6 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.backgroundColor,
   },
   container: {
-    // mainAxisSize.max + center alignment
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',

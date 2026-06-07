@@ -11,15 +11,16 @@ export interface ProfileMenuItemProps {
   title: string;
   onPress?: () => void;
   iconColor?: string;
+  disabled?: boolean;
 }
 
 export function ProfileMenuItem(props: ProfileMenuItemProps) {
-  const { icon, title, onPress, iconColor } = props;
+  const { icon, title, onPress, iconColor, disabled } = props;
   const tint = iconColor ?? AppColors.primaryColor;
 
   return (
-    <Pressable onPress={onPress}>
-      <View style={styles.container}>
+    <Pressable onPress={onPress} disabled={disabled}>
+      <View style={[styles.container, disabled && styles.containerDisabled]}>
         <View
           style={[
             styles.iconBox,
@@ -55,6 +56,9 @@ const styles = StyleSheet.create({
     paddingVertical: h(16),
     borderBottomWidth: 1,
     borderBottomColor: hexWithOpacity(AppColors.lightGray, 0.2),
+  },
+  containerDisabled: {
+    opacity: 0.4,
   },
   iconBox: {
     width: w(40),

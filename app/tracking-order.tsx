@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Dimensions,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -226,6 +227,23 @@ export default function TrackingOrderScreen() {
                         />
                       </>
                     )}
+                    {!!driver.phone && (
+                      <>
+                        <View style={{ height: h(4) }} />
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Ionicons
+                            name="call-outline"
+                            size={sp(12)}
+                            color={AppColors.textColor2}
+                          />
+                          <View style={{ width: w(4) }} />
+                          <BaseText
+                            title={driver.phone}
+                            style={{ fontSize: sp(12), color: AppColors.textColor2 }}
+                          />
+                        </View>
+                      </>
+                    )}
                   </View>
                   <View style={{ flex: 1 }} />
                   <View style={{ alignItems: 'flex-end' }}>
@@ -245,7 +263,19 @@ export default function TrackingOrderScreen() {
                       </View>
                     )}
                     <View style={{ height: h(8) }} />
-                    <Pressable onPress={() => showSnack(t('calling_driver'), 'info')} style={styles.callButton}>
+                    <Pressable
+                      onPress={() => {
+                        const number = String(driver.phone ?? '').replace(/\s/g, '');
+                        if (!number) {
+                          showSnack(t('calling_driver'), 'info');
+                          return;
+                        }
+                        Linking.openURL(`tel:${number}`).catch(() =>
+                          showSnack(number, 'info'),
+                        );
+                      }}
+                      style={styles.callButton}
+                    >
                       <Ionicons
                         name="call"
                         size={sp(14)}
