@@ -6,6 +6,8 @@ import { create } from 'zustand';
 import { repository } from '@/data/repository';
 import { showSnack } from '@/lib/snack';
 import { useAuthStore as useGlobalAuthStore } from '@/store/authStore';
+import { useAddressStore } from '@/features/addresses/addressStore';
+import { useCityStore } from '@/features/location/cityStore';
 import { secureStorage } from '@/lib/storage';
 
 // Ported from core/enums/gender_type.dart
@@ -383,6 +385,12 @@ export const useAuthControllerStore = create<AuthStoreState>((set, get) => ({
       set({ isLoading: true });
       const res = await repository.registerWithPhone(args);
       if (res.success) {
+        // A brand-new account must start clean — the address + city stores are
+        // per-device, so clear any prior user's saved addresses and city. This
+        // also lets the home's first-run nudge ask the new user to pick a city
+        // (instead of inheriting a leftover default like Damascus).
+        await useAddressStore.getState().reset();
+        await useCityStore.getState().clear();
         return true;
       } else {
         showServerMessages([res.msg]);
@@ -513,6 +521,9 @@ export const useAuthControllerStore = create<AuthStoreState>((set, get) => ({
     try {
       set({ isLoading: true });
       await repository.logout();
+      // Clear device-local addresses + city so the next account starts fresh.
+      await useAddressStore.getState().reset();
+      await useCityStore.getState().clear();
       // Get.offAllNamed(Routes.login) — navigation handled by the caller/router.
     } catch (e) {
       // Handle error, maybe still logout locally

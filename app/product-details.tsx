@@ -8,6 +8,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
+  Pressable,
   type TextStyle,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,7 +26,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useNavArgs } from '@/store/navArgs';
 import { formatPrice } from '@/lib/currency';
 import { showSnack } from '@/lib/snack';
-import { ProductModel, ProductVariation } from '@/types/product';
+import { ProductModel, ProductVariation, ProductOptionGroup } from '@/types/product';
 
 export default function ProductDetailsScreen() {
   const router = useRouter();
@@ -34,10 +36,28 @@ export default function ProductDetailsScreen() {
   const currentProduct = useProductStore((s) => s.currentProduct);
   const isLoading = useProductStore((s) => s.isLoading);
 
-  // The bottom bar reflects the real cart, not the local stepper — so it shows
-  // no price until the user has actually added something to the cart.
+  // The bottom bar reflects the real cart, not the local stepper. It only
+  // appears once the cart actually has items — an empty cart shows nothing
+  // (there's no order to "view" yet).
   const cartSummary = useCartStore((s) => s.summary);
+  const cartItems = useCartStore((s) => s.items);
   const cartHasItems = cartSummary.items_count > 0;
+
+  // Slide-up mini-cart preview anchored to the bottom bar.
+  const [cartSheetOpen, setCartSheetOpen] = useState(false);
+
+  // Pull the real server cart so the bottom bar / mini-cart reflect items added
+  // on other screens too (only meaningful for a signed-in user).
+  useEffect(() => {
+    if (useAuthStore.getState().isLoggedIn) {
+      useCartStore.getState().loadCart();
+    }
+  }, []);
+
+  const openFullCart = () => {
+    setCartSheetOpen(false);
+    router.push('/(tabs)/cart');
+  };
 
   // Product comes via navArgs; if only an id is present, fetch it.
   const argProduct = args.product as ProductModel | undefined;
@@ -53,6 +73,49 @@ export default function ProductDetailsScreen() {
     () => product?.variations ?? [],
     [product],
   );
+
+  // Add-on groups (appetizers, drinks, extras, sizes…). Selections are kept as a
+  // map of group id → selected item ids; the customer pays the server-resolved
+  // price, so here we only track which items are picked.
+  const optionGroups: ProductOptionGroup[] = useMemo(
+    () => product?.optionGroups ?? [],
+    [product],
+  );
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({});
+
+  const toggleOption = (group: ProductOptionGroup, itemId: string) => {
+    const gid = String(group.id);
+    setSelectedOptions((prev) => {
+      const current = prev[gid] ?? [];
+      const isSelected = current.includes(itemId);
+      let next: string[];
+      if (group.multiple === false) {
+        // Single-select: tapping the selected item clears it, else it replaces.
+        next = isSelected ? [] : [itemId];
+      } else if (isSelected) {
+        next = current.filter((x) => x !== itemId);
+      } else {
+        // Respect an optional max — ignore the tap once the cap is reached.
+        if (group.max != null && current.length >= group.max) return prev;
+        next = [...current, itemId];
+      }
+      return { ...prev, [gid]: next };
+    });
+  };
+
+  // Sum of every selected add-on's price across all groups.
+  const optionsTotal = useMemo(() => {
+    let sum = 0;
+    for (const group of optionGroups) {
+      const picked = selectedOptions[String(group.id)] ?? [];
+      for (const item of group.items ?? []) {
+        if (item.id != null && picked.includes(String(item.id))) {
+          sum += Number(item.price) || 0;
+        }
+      }
+    }
+    return sum;
+  }, [optionGroups, selectedOptions]);
 
   const [selectedVariationId, setSelectedVariationId] = useState<
     string | number | null
@@ -116,6 +179,103 @@ export default function ProductDetailsScreen() {
     );
   };
 
+  // Renders one add-on group: a titled section with a required/optional hint and
+  // a checkbox (multi) or radio (single-select) row per item.
+  const buildOptionGroup = (group: ProductOptionGroup) => {
+    const gid = String(group.id);
+    const picked = selectedOptions[gid] ?? [];
+    const single = group.multiple === false;
+    const hint = group.required
+      ? t('required_label')
+      : single
+        ? t('choose_one')
+        : group.max != null
+          ? t('choose_up_to', { count: group.max })
+          : t('optional_label');
+    return (
+      <View key={gid}>
+        <View style={styles.divider} />
+        <View style={{ height: h(20) }} />
+        <View style={styles.groupHeader}>
+          <BaseTextRaw
+            text={group.name ?? ''}
+            style={{ fontSize: sp(17), fontWeight: '700', color: AppColors.textColorTheme }}
+          />
+          <View
+            style={[styles.groupHintPill, group.required && styles.groupHintPillRequired]}
+          >
+            <Text
+              style={[
+                styles.groupHintText,
+                { color: group.required ? AppColors.errorColor : AppColors.textColor2 },
+              ]}
+            >
+              {hint}
+            </Text>
+          </View>
+        </View>
+        <View style={{ height: h(12) }} />
+        {(group.items ?? []).map((item) => {
+          const itemId = String(item.id);
+          const isSelected = picked.includes(itemId);
+          const price = Number(item.price) || 0;
+          return (
+            <TouchableOpacity
+              key={itemId}
+              activeOpacity={0.8}
+              onPress={() => toggleOption(group, itemId)}
+            >
+              <View
+                style={[
+                  styles.optionTile,
+                  {
+                    backgroundColor: isSelected
+                      ? `${AppColors.lightTeal}4D`
+                      : AppColors.white,
+                    borderColor: isSelected
+                      ? AppColors.primaryColor
+                      : AppColors.lightGreyV2,
+                    borderWidth: isSelected ? 1.5 : 1.0,
+                  },
+                ]}
+              >
+                <View style={styles.optionTileMain}>
+                  <Ionicons
+                    name={
+                      single
+                        ? isSelected
+                          ? 'radio-button-on'
+                          : 'radio-button-off'
+                        : isSelected
+                          ? 'checkbox'
+                          : 'square-outline'
+                    }
+                    size={sp(20)}
+                    color={isSelected ? AppColors.primaryColor : AppColors.textColor2}
+                  />
+                  <View style={{ width: w(10) }} />
+                  <BaseOptionText
+                    text={item.name ?? ''}
+                    color={isSelected ? AppColors.primaryColor : AppColors.textColorTheme}
+                    weight="500"
+                  />
+                </View>
+                {price > 0 && (
+                  <BaseOptionText
+                    text={`+ ${formatPrice(price)}`}
+                    color={isSelected ? AppColors.primaryColor : AppColors.textColor2}
+                    weight="600"
+                  />
+                )}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+        <View style={{ height: h(20) }} />
+      </View>
+    );
+  };
+
   if (!product) {
     return (
       <SafeAreaView style={styles.safe}>
@@ -163,10 +323,25 @@ export default function ProductDetailsScreen() {
       router.push('/login');
       return;
     }
+    // Every required add-on group must have at least one selection.
+    for (const group of optionGroups) {
+      if (group.required && (selectedOptions[String(group.id)] ?? []).length === 0) {
+        showSnack(t('please_choose_option', { name: group.name ?? '' }), 'info');
+        return;
+      }
+    }
+    // Send only references; the backend resolves names/prices from the product.
+    const options = optionGroups.flatMap((group) =>
+      (selectedOptions[String(group.id)] ?? []).map((item_id) => ({
+        group_id: String(group.id),
+        item_id,
+      })),
+    );
     const res = await useCartStore.getState().addItem({
       product_id: product.id as any,
       qty,
       variation_id: (selectedVariationId ?? null) as any,
+      options,
     });
     if (res.ok) {
       // If the backend reset a different restaurant's cart, say so.
@@ -272,6 +447,9 @@ export default function ProductDetailsScreen() {
               </>
             )}
 
+            {/* Add-on groups (appetizers, drinks, extras…) */}
+            {optionGroups.map((group) => buildOptionGroup(group))}
+
             {/* Quantity stepper + Add to Cart button (inline row) */}
             <View style={styles.actionRow}>
               {/* Quantity stepper */}
@@ -320,7 +498,7 @@ export default function ProductDetailsScreen() {
                 />
                 <View style={{ alignItems: 'flex-end' }}>
                   <BaseTextRaw
-                    text={formatPrice(unitPrice * qty)}
+                    text={formatPrice((unitPrice + optionsTotal) * qty)}
                     style={{
                       color: AppColors.white,
                       fontSize: sp(16),
@@ -347,34 +525,140 @@ export default function ProductDetailsScreen() {
           </View>
         </ScrollView>
 
-        {/* Bottom View Cart Bar — price only appears once the cart has items. */}
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={[
-            styles.bottomBar,
-            !cartHasItems && { justifyContent: 'center' },
-          ]}
-          onPress={() => router.push('/(tabs)/cart')}
+        {/* Bottom mini-cart bar — only shown once the cart actually has items.
+            Tapping it slides a preview of the cart up instead of jumping
+            straight to the cart tab. */}
+        {cartHasItems && (
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={styles.bottomBar}
+            onPress={() => setCartSheetOpen(true)}
+          >
+            <View style={styles.bottomBarSide}>
+              <Ionicons name="cart-outline" size={sp(22)} color={AppColors.white} />
+              <View style={{ width: w(10) }} />
+              <BaseTextRaw
+                text={t('items_in_cart', { count: cartSummary.items_count })}
+                style={{ color: AppColors.white, fontSize: sp(15), fontWeight: '600' }}
+              />
+            </View>
+            <View style={styles.bottomBarSide}>
+              <BaseTextRaw
+                text={formatPrice(cartSummary.subtotal)}
+                style={{ color: AppColors.white, fontSize: sp(16), fontWeight: 'bold' }}
+              />
+              <View style={{ width: w(8) }} />
+              <Ionicons name="chevron-up" size={sp(20)} color={AppColors.white} />
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {/* Slide-up mini-cart preview. Backdrop tap (or chevron) closes it; the
+            inner Pressable swallows taps so they don't bubble to the backdrop. */}
+        <Modal
+          visible={cartSheetOpen}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setCartSheetOpen(false)}
         >
-          {cartHasItems && (
-            <BaseTextRaw
-              text={formatPrice(cartSummary.subtotal)}
-              style={{
-                color: AppColors.white,
-                fontSize: sp(16),
-                fontWeight: '600',
-              }}
-            />
-          )}
-          <BaseTextRaw
-            text={t('view_cart')}
-            style={{
-              color: AppColors.white,
-              fontSize: sp(16),
-              fontWeight: 'bold',
-            }}
-          />
-        </TouchableOpacity>
+          <Pressable
+            style={styles.sheetBackdrop}
+            onPress={() => setCartSheetOpen(false)}
+          >
+            <Pressable
+              style={[styles.sheetPanel, { paddingBottom: insets.bottom + h(16) }]}
+              onPress={() => {}}
+            >
+              <View style={styles.grabber} />
+
+              {/* Header */}
+              <View style={styles.sheetHeader}>
+                <View style={styles.bottomBarSide}>
+                  <Ionicons
+                    name="cart-outline"
+                    size={sp(22)}
+                    color={AppColors.primaryColor}
+                  />
+                  <View style={{ width: w(10) }} />
+                  <BaseTextRaw
+                    text={t('items_in_cart', { count: cartSummary.items_count })}
+                    style={{
+                      color: AppColors.textColorTheme,
+                      fontSize: sp(16),
+                      fontWeight: '700',
+                    }}
+                  />
+                </View>
+                <TouchableOpacity
+                  hitSlop={8}
+                  onPress={() => setCartSheetOpen(false)}
+                >
+                  <Ionicons
+                    name="chevron-down"
+                    size={sp(24)}
+                    color={AppColors.textColor2}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {/* Item thumbnails with quantity badges */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.thumbRow}
+              >
+                {cartItems.map((it, idx) => (
+                  <View key={String(it.product_id ?? idx)} style={styles.thumbWrap}>
+                    <Image
+                      source={{ uri: it.image || '' }}
+                      style={styles.thumb}
+                      contentFit="cover"
+                    />
+                    <View style={styles.qtyBadge}>
+                      <Text style={styles.qtyBadgeText}>{it.qty}</Text>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+
+              {/* Footer: total + view full cart */}
+              <View style={styles.sheetFooter}>
+                <View>
+                  <BaseTextRaw
+                    text={t('total')}
+                    style={{
+                      color: AppColors.textColor2,
+                      fontSize: sp(13),
+                      fontWeight: '500',
+                    }}
+                  />
+                  <BaseTextRaw
+                    text={formatPrice(cartSummary.subtotal)}
+                    style={{
+                      color: AppColors.textColorTheme,
+                      fontSize: sp(20),
+                      fontWeight: '700',
+                    }}
+                  />
+                </View>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={styles.viewCartBtn}
+                  onPress={openFullCart}
+                >
+                  <BaseTextRaw
+                    text={t('view_cart')}
+                    style={{
+                      color: AppColors.white,
+                      fontSize: sp(16),
+                      fontWeight: '700',
+                    }}
+                  />
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
       </View>
     </SafeAreaView>
   );
@@ -488,6 +772,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  optionTileMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  groupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  groupHintPill: {
+    paddingHorizontal: w(10),
+    paddingVertical: h(3),
+    borderRadius: r(12),
+    backgroundColor: AppColors.lightGrey,
+  },
+  groupHintPillRequired: {
+    backgroundColor: `${AppColors.errorColor}1A`, // ~0.1 opacity
+  },
+  groupHintText: {
+    fontSize: sp(11),
+    fontFamily: quicksand('600'),
+  },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
@@ -540,5 +847,89 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
+  },
+  bottomBarSide: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  // ---- Slide-up mini-cart sheet ----
+  sheetBackdrop: {
+    flex: 1,
+    backgroundColor: `${AppColors.black}66`, // ~0.4 opacity scrim
+    justifyContent: 'flex-end',
+  },
+  sheetPanel: {
+    backgroundColor: AppColors.white,
+    borderTopLeftRadius: r(24),
+    borderTopRightRadius: r(24),
+    paddingHorizontal: w(16),
+    paddingTop: h(8),
+    shadowColor: AppColors.black,
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 12,
+  },
+  grabber: {
+    alignSelf: 'center',
+    width: w(40),
+    height: h(4),
+    borderRadius: r(2),
+    backgroundColor: AppColors.lightGreyV2,
+    marginBottom: h(16),
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: h(16),
+  },
+  thumbRow: {
+    paddingVertical: h(4),
+    paddingRight: w(8),
+  },
+  thumbWrap: {
+    width: w(64),
+    height: w(64),
+    marginRight: w(10),
+  },
+  thumb: {
+    width: w(64),
+    height: w(64),
+    borderRadius: r(10),
+    backgroundColor: AppColors.lightGrey,
+  },
+  qtyBadge: {
+    position: 'absolute',
+    top: -h(6),
+    right: -w(6),
+    minWidth: w(20),
+    height: w(20),
+    paddingHorizontal: w(4),
+    borderRadius: r(10),
+    backgroundColor: AppColors.darkTeal,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: AppColors.white,
+  },
+  qtyBadgeText: {
+    color: AppColors.white,
+    fontSize: sp(11),
+    fontFamily: quicksand('700'),
+  },
+  sheetFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: h(20),
+  },
+  viewCartBtn: {
+    backgroundColor: AppColors.primaryColor,
+    borderRadius: r(14),
+    paddingHorizontal: w(28),
+    height: h(50),
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -469,17 +469,17 @@ export default function VendorDetailsScreen() {
           <View style={{ height: h(80) }} />
         </ScrollView>
 
-        {/* Bottom Cart Button (Positioned) */}
-        <View style={styles.bottomCartWrap}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.bottomCart,
-              !cartHasItems && { justifyContent: 'center' },
-              pressed && { opacity: 0.9 },
-            ]}
-            onPress={() => router.push('/(tabs)/cart')}
-          >
-            {cartHasItems && (
+        {/* Bottom Cart Button — only shown once the cart has items. An empty
+            cart has nothing to view, so the bar is hidden entirely. */}
+        {cartHasItems && (
+          <View style={styles.bottomCartWrap}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.bottomCart,
+                pressed && { opacity: 0.9 },
+              ]}
+              onPress={() => router.push('/(tabs)/cart')}
+            >
               <View style={styles.cartBadge}>
                 <BaseText
                   title={String(cartSummary.items_count)}
@@ -490,16 +490,14 @@ export default function VendorDetailsScreen() {
                   }}
                 />
               </View>
-            )}
-            <BaseText
-              title={t('view_cart')}
-              style={{
-                color: AppColors.white,
-                fontSize: sp(16),
-                fontFamily: quicksand('bold'),
-              }}
-            />
-            {cartHasItems && (
+              <BaseText
+                title={t('view_cart')}
+                style={{
+                  color: AppColors.white,
+                  fontSize: sp(16),
+                  fontFamily: quicksand('bold'),
+                }}
+              />
               <BaseText
                 title={formatPrice(cartSummary.subtotal)}
                 style={{
@@ -508,9 +506,9 @@ export default function VendorDetailsScreen() {
                   fontFamily: quicksand('bold'),
                 }}
               />
-            )}
-          </Pressable>
-        </View>
+            </Pressable>
+          </View>
+        )}
       </View>
     </SafeAreaView>
   );

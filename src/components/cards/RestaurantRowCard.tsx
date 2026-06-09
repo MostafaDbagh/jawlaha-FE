@@ -10,8 +10,8 @@ import { BaseText } from '@/components';
 
 export interface RestaurantBadge {
   text: string;
-  /** 'offer' = yellow pill, 'free' = green pill */
-  type: 'offer' | 'free';
+  /** 'offer' = yellow pill, 'free' = green pill, 'featured' = teal pill */
+  type: 'offer' | 'free' | 'featured';
 }
 
 export interface RestaurantRowCardProps {
@@ -80,17 +80,24 @@ export function RestaurantRowCard({
 
         {badges.length > 0 && (
           <View style={styles.badgesRow}>
-            {badges.map((b, i) => (
-              <View
-                key={`${b.text}-${i}`}
-                style={[styles.badge, b.type === 'free' ? styles.badgeFree : styles.badgeOffer]}
-              >
-                <BaseText
-                  title={b.text}
-                  style={[styles.badgeText, b.type === 'free' ? styles.badgeFreeText : styles.badgeOfferText]}
-                />
-              </View>
-            ))}
+            {badges.map((b, i) => {
+              const box =
+                b.type === 'free' ? styles.badgeFree : b.type === 'featured' ? styles.badgeFeatured : styles.badgeOffer;
+              const txt =
+                b.type === 'free'
+                  ? styles.badgeFreeText
+                  : b.type === 'featured'
+                  ? styles.badgeFeaturedText
+                  : styles.badgeOfferText;
+              return (
+                <View key={`${b.text}-${i}`} style={[styles.badge, box]}>
+                  {b.type === 'featured' && (
+                    <MaterialIcons name="star" size={sp(11)} color={AppColors.primaryColor} style={styles.badgeIcon} />
+                  )}
+                  <BaseText title={b.text} style={[styles.badgeText, txt]} />
+                </View>
+              );
+            })}
           </View>
         )}
       </View>
@@ -125,12 +132,15 @@ const styles = StyleSheet.create({
   free: { fontSize: sp(12), color: AppColors.green, fontFamily: quicksand('700') },
   meta: { fontSize: sp(12), color: AppColors.greyTextColorV3 },
   badgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: w(6), marginTop: h(8) },
-  badge: { paddingHorizontal: w(8), paddingVertical: h(3), borderRadius: r(6) },
+  badge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: w(8), paddingVertical: h(3), borderRadius: r(6) },
+  badgeIcon: { marginRight: w(3) },
   badgeOffer: { backgroundColor: '#FBE9A8' },
   badgeFree: { backgroundColor: 'rgba(22,167,121,0.15)' },
+  badgeFeatured: { backgroundColor: 'rgba(0,150,136,0.12)' },
   badgeText: { fontSize: sp(11), fontFamily: quicksand('600') },
   badgeOfferText: { color: '#8A6D00' },
   badgeFreeText: { color: AppColors.green },
+  badgeFeaturedText: { color: AppColors.primaryColor },
 });
 
 export default RestaurantRowCard;

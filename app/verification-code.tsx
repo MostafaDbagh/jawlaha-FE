@@ -34,6 +34,8 @@ export default function VerificationCodeScreen() {
 
   const inputRefs = useRef<Array<TextInput | null>>([]);
   const [digits, setDigits] = useState<string[]>(Array(PIN_LENGTH).fill(''));
+  // Inline error shown under the PIN row when the entered code is wrong/incomplete.
+  const [otpError, setOtpError] = useState<string | null>(null);
 
   // Dev convenience: prefill the OTP returned by the backend (no real SMS).
   useEffect(() => {
@@ -47,6 +49,8 @@ export default function VerificationCodeScreen() {
     const next = [...digits];
     next[index] = value;
     setDigits(next);
+    // Clear a stale error as soon as the user edits the code.
+    if (otpError) setOtpError(null);
     if (value && index < PIN_LENGTH - 1) {
       inputRefs.current[index + 1]?.focus();
     }
@@ -59,9 +63,10 @@ export default function VerificationCodeScreen() {
   };
 
   const onConfirm = async () => {
+    setOtpError(null);
     const code = digits.join('');
     if (code.length !== PIN_LENGTH) {
-      showSnack(t('plz_enter_valid_phone_number'), 'error');
+      setOtpError(t('invalid_otp_code'));
       return;
     }
     if (resetPassword) {
@@ -72,7 +77,11 @@ export default function VerificationCodeScreen() {
     }
     const ok = await useAuthControllerStore.getState().verifyOtpLogin(phone, code);
     if (ok) {
+      // Correct code -> straight into the app.
       router.replace('/(tabs)');
+    } else {
+      // Wrong code -> keep the user here and surface the error inline.
+      setOtpError(t('invalid_otp_code'));
     }
   };
 
@@ -122,6 +131,17 @@ export default function VerificationCodeScreen() {
               />
             ))}
           </View>
+
+          {!!otpError && (
+            <>
+              <View style={{ height: h(10) }} />
+              <BaseText
+                title={otpError}
+                style={[TextStyles.bodySmall, { color: AppColors.errorColor }]}
+                textAlign="center"
+              />
+            </>
+          )}
 
           {__DEV__ && (
             <>

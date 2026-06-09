@@ -35,6 +35,49 @@ export function productVariationToJson(v: ProductVariation): any {
   };
 }
 
+// A single selectable add-on (e.g. "بطاطا مقلية" +3000).
+export interface ProductOptionItem {
+  id?: string;
+  name?: string;
+  price?: number;
+  imageUrl?: string | null;
+  popular?: boolean;
+}
+
+// A group of add-ons (e.g. "المقبلات", "الحجم"). multiple=false → single-select.
+export interface ProductOptionGroup {
+  id?: string;
+  kind?: string | null;
+  name?: string;
+  required?: boolean;
+  multiple?: boolean;
+  max?: number | null;
+  items?: ProductOptionItem[];
+}
+
+export function parseProductOptionItem(json: any): ProductOptionItem {
+  return {
+    id: json?.id != null ? String(json.id) : undefined,
+    name: json?.name,
+    price: json?.price != null ? Number(json.price) : 0,
+    imageUrl: json?.image ?? json?.image_url ?? null,
+    popular: !!json?.popular,
+  };
+}
+
+export function parseProductOptionGroup(json: any): ProductOptionGroup {
+  return {
+    id: json?.id != null ? String(json.id) : undefined,
+    kind: json?.kind ?? null,
+    name: json?.name,
+    required: !!json?.required,
+    // Default to multi-select unless explicitly false (matches backend default).
+    multiple: json?.multiple !== false,
+    max: json?.max != null ? Number(json.max) : null,
+    items: Array.isArray(json?.items) ? json.items.map(parseProductOptionItem) : [],
+  };
+}
+
 export interface ProductModel {
   id?: string | number;
   name?: string;
@@ -48,6 +91,7 @@ export interface ProductModel {
   branchId?: string | number;
   isActive?: boolean;
   variations?: ProductVariation[];
+  optionGroups?: ProductOptionGroup[];
 }
 
 export function parseProductModel(json: any): ProductModel {
@@ -65,6 +109,7 @@ export function parseProductModel(json: any): ProductModel {
     branchId: json?.branch_id,
     isActive: json?.is_active,
     variations: json?.variations != null ? json.variations.map(parseProductVariation) : undefined,
+    optionGroups: json?.option_groups != null ? json.option_groups.map(parseProductOptionGroup) : undefined,
   };
 }
 

@@ -3,8 +3,13 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AppColors, sp } from '@/theme';
 import { t } from '@/i18n';
+import { usePushRegistration } from '@/features/push/usePushRegistration';
 
 export default function TabsLayout() {
+  // User is authenticated by the time the tabs render — register for push
+  // notifications and wire up tap/foreground handling here.
+  usePushRegistration();
+
   return (
     <Tabs
       screenOptions={{

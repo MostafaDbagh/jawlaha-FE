@@ -27,6 +27,9 @@ export interface BranchModel {
   isOpen?: boolean;
   vendorName?: string;
   distanceKm?: number;
+  // True when the branch's restaurant is an admin "editor's pick" — surfaced
+  // first on the home and tagged with a "مميز" badge.
+  isFeatured?: boolean;
 }
 
 export function parseBranchModel(json: any): BranchModel {
@@ -56,6 +59,7 @@ export function parseBranchModel(json: any): BranchModel {
     isOpen: json?.is_open,
     vendorName: json?.vendor?.name,
     distanceKm: json?.distance != null ? Number(json.distance) : undefined,
+    isFeatured: json?.vendor?.is_featured ?? json?.is_featured ?? false,
   };
 }
 

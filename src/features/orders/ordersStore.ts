@@ -32,6 +32,8 @@ export interface Order {
   payment_method: string;
   status: string;
   delivery_address?: string | null;
+  delivery_lat?: number | null;
+  delivery_lng?: number | null;
   delivery_note?: string | null;
   leave_at_door?: boolean;
   dont_ring_bell?: boolean;
@@ -48,16 +50,18 @@ interface OrdersState {
   isLoading: boolean;
   loadOrders: (status?: string) => Promise<void>;
   loadOrder: (id: string) => Promise<void>;
+  refreshOrder: (id: string) => Promise<void>;
   createOrder: (args: {
     delivery_address?: string | null;
+    delivery_lat?: number | null;
+    delivery_lng?: number | null;
     delivery_note?: string | null;
     leave_at_door?: boolean;
     dont_ring_bell?: boolean;
   }) => Promise<Order | null>;
-  cancelOrder: (id: string) => Promise<void>;
 }
 
-export const useOrdersStore = create<OrdersState>((set, get) => ({
+export const useOrdersStore = create<OrdersState>((set) => ({
   orders: [],
   totalOrders: 0,
   currentOrder: null,
@@ -90,6 +94,17 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
     }
   },
 
+  // Silent refetch for live status polling — updates currentOrder in place
+  // without toggling isLoading or clearing the screen (no spinner flash).
+  async refreshOrder(id) {
+    try {
+      const res = await ordersRepo.getOrder(id);
+      if (res.success && res.object) set({ currentOrder: res.object as Order });
+    } catch (e) {
+      // keep the last known order on a transient failure
+    }
+  },
+
   async createOrder(args) {
     try {
       set({ isLoading: true });
@@ -113,13 +128,7 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
     }
     return null;
   },
-
-  async cancelOrder(id) {
-    const res = await ordersRepo.cancelOrder(id);
-    if (res.success) {
-      const order = (res.object as any)?.data as Order;
-      if (order) set({ currentOrder: order });
-      await get().loadOrders();
-    }
-  },
+  // No cancelOrder: once placed, a Cash-on-Delivery order is final and cannot be
+  // cancelled or edited by the customer (Keeta-style). The backend exposes no
+  // customer cancel endpoint.
 }));

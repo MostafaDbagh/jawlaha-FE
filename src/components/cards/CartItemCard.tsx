@@ -1,4 +1,5 @@
-// Ported from screens/cart/widgets/cart_item_card.dart (CartItemCard)
+// Cart line item card. Layout: rounded thumbnail · name / option / price · a
+// pill quantity stepper (− n +) with a trash button on the right.
 import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -31,78 +32,51 @@ export function CartItemCard(props: CartItemCardProps) {
 
   return (
     <View style={styles.container}>
-      {/* Product Image */}
+      {/* Product image */}
       <View style={styles.imageBox}>
         {imageUrl.length > 0 ? (
           <AppImage
             source={imageUrl}
-            width={w(70)}
-            height={w(70)}
-            borderRadius={r(12)}
+            width={w(64)}
+            height={w(64)}
+            borderRadius={r(16)}
             contentFit="cover"
           />
         ) : (
-          <MaterialIcons
-            name="shopping-bag"
-            color="#BDBDBD"
-            size={sp(30)}
-          />
+          <MaterialIcons name="shopping-bag" color={AppColors.textColor2} size={sp(28)} />
         )}
       </View>
       <View style={{ width: w(12) }} />
 
-      {/* Product Details */}
+      {/* Name · option · price */}
       <View style={styles.details}>
-        <BaseText
-          title={name}
-          numberOfLines={1}
-          style={styles.name}
-        />
-        <View style={{ height: h(4) }} />
-        <BaseText
-          title={description}
-          numberOfLines={1}
-          style={styles.description}
-        />
-        <View style={{ height: h(6) }} />
-        <BaseText title={price} style={styles.price} />
+        <BaseText title={name} numberOfLines={1} style={styles.name} />
+        {description.length > 0 && (
+          <>
+            <View style={{ height: h(4) }} />
+            <BaseText title={description} numberOfLines={1} style={styles.description} />
+          </>
+        )}
+        <View style={{ height: h(8) }} />
+        <BaseText title={price} numberOfLines={1} style={styles.price} />
       </View>
 
-      {/* Quantity Controls */}
-      <View style={{ alignItems: 'center' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          {/* Decrement Button */}
-          <Pressable onPress={onDecrement} style={styles.decrementBtn}>
-            <MaterialIcons
-              name="remove"
-              size={sp(16)}
-              color={AppColors.textColorTheme}
-            />
+      <View style={{ width: w(8) }} />
+
+      {/* Quantity stepper pill + delete */}
+      <View style={styles.controls}>
+        <View style={styles.stepperPill}>
+          <Pressable onPress={onDecrement} hitSlop={6} style={styles.stepBtn}>
+            <MaterialIcons name="remove" size={sp(18)} color={AppColors.textColor2} />
           </Pressable>
-          <View style={{ width: w(12) }} />
-
-          {/* Quantity */}
           <BaseText title={quantity.toString()} style={styles.quantity} />
-          <View style={{ width: w(12) }} />
-
-          {/* Increment Button */}
-          <Pressable onPress={onIncrement} style={styles.incrementBtn}>
-            <MaterialIcons
-              name="add"
-              size={sp(16)}
-              color={AppColors.primaryColor}
-            />
+          <Pressable onPress={onIncrement} hitSlop={6} style={styles.stepBtn}>
+            <MaterialIcons name="add" size={sp(18)} color={AppColors.primaryColor} />
           </Pressable>
         </View>
-        <View style={{ height: h(8) }} />
-
-        {/* Delete Button */}
-        <Pressable onPress={onDelete}>
-          <MaterialIcons
-            name="delete-outline"
-            color={AppColors.textColor2}
-            size={sp(20)}
-          />
+        <View style={{ width: w(8) }} />
+        <Pressable onPress={onDelete} hitSlop={8} style={styles.deleteBtn}>
+          <MaterialIcons name="delete-outline" color={AppColors.textColor2} size={sp(22)} />
         </Pressable>
       </View>
     </View>
@@ -124,10 +98,10 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   imageBox: {
-    width: w(70),
-    height: w(70),
-    backgroundColor: AppColors.baserColor,
-    borderRadius: r(12),
+    width: w(64),
+    height: w(64),
+    backgroundColor: AppColors.lightGreyV2,
+    borderRadius: r(16),
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -138,36 +112,49 @@ const styles = StyleSheet.create({
   },
   name: {
     fontFamily: quicksand('bold'),
-    fontSize: sp(14),
+    fontSize: sp(15),
+    color: AppColors.textColorTheme,
   },
   description: {
+    fontFamily: quicksand('400'),
     color: AppColors.textColor2,
-    fontSize: sp(12),
+    fontSize: sp(13),
   },
   price: {
     fontFamily: quicksand('bold'),
     fontSize: sp(14),
     color: AppColors.textColorTheme,
   },
-  decrementBtn: {
-    width: w(28),
-    height: w(28),
-    backgroundColor: AppColors.lightGreyV2,
-    borderRadius: r(8),
+  controls: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  incrementBtn: {
-    width: w(28),
-    height: w(28),
-    backgroundColor: 'rgba(35,90,94,0.1)',
-    borderRadius: r(8),
+  stepperPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: AppColors.lightGreyV2,
+    borderRadius: r(24),
+    paddingHorizontal: w(4),
+    height: h(36),
+  },
+  stepBtn: {
+    width: w(30),
+    height: h(32),
     alignItems: 'center',
     justifyContent: 'center',
   },
   quantity: {
-    fontSize: sp(14),
+    minWidth: w(22),
+    textAlign: 'center',
     fontFamily: quicksand('bold'),
+    fontSize: sp(15),
+    color: AppColors.textColorTheme,
+  },
+  deleteBtn: {
+    width: w(32),
+    height: w(32),
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

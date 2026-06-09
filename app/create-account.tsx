@@ -13,9 +13,19 @@ import { t, useI18n } from '@/i18n';
 import { AppImage, BaseText, LoadingButton, AppTextField } from '@/components';
 import { Res } from '@/lib/assets';
 import { Validator } from '@/lib/validators';
+import { PasswordStrengthBar, isPasswordValid } from '@/components/PasswordStrengthBar';
 import { toApiPhone } from '@/lib/phone';
 import { showSnack } from '@/lib/snack';
+import { navArgs } from '@/store/navArgs';
 import { useAuthControllerStore } from '@/features/auth/authStore';
+
+// Empty → "enter a password"; otherwise enforce the backend strength rule and
+// surface it as the field's inline error span (not a generic server toast).
+function validatePasswordField(value: string): string | null {
+  if (value.trim().length === 0) return t('plz_enter_valid_password');
+  if (!isPasswordValid(value)) return t('password_too_weak');
+  return null;
+}
 
 export default function CreateAccountScreen() {
   const router = useRouter();
@@ -39,7 +49,7 @@ export default function CreateAccountScreen() {
   async function onSignUp() {
     const nameErr = Validator.emptyText(fullName);
     const phoneErr = Validator.phoneNumberValid(phoneNumber);
-    const passErr = Validator.emptyText(password, 'plz_enter_valid_password');
+    const passErr = validatePasswordField(password);
     const confirmErr = Validator.matchPassword(password, confirmPassword);
     setNameError(nameErr);
     setPhoneError(phoneErr);
@@ -63,7 +73,12 @@ export default function CreateAccountScreen() {
       password,
     });
     if (ok) {
-      router.replace('/(tabs)');
+      // Account created. Gate entry on SMS verification: issue an OTP for this
+      // phone, then send the user to the verification screen (a correct code
+      // lands them on home; a wrong one shows an inline error there).
+      await useAuthControllerStore.getState().requestOtpLogin(fullPhone, fullName.trim());
+      navArgs.set({ phone: fullPhone });
+      router.replace('/verification-code');
     }
   }
 
@@ -148,7 +163,7 @@ export default function CreateAccountScreen() {
             borderStyleType="outlineInput"
             obscureText={!showPassword}
             hintText={t('enter_your_password')}
-            validator={(v) => Validator.emptyText(v, 'plz_enter_valid_password')}
+            validator={validatePasswordField}
             errorText={passwordError}
             prefixIcon={
               <Ionicons
@@ -168,6 +183,8 @@ export default function CreateAccountScreen() {
             }
           />
         </View>
+
+        <PasswordStrengthBar password={password} />
 
         <View style={{ height: h(16) }} />
 

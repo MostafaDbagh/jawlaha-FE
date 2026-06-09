@@ -10,8 +10,17 @@ import {
   Quicksand_600SemiBold,
   Quicksand_700Bold,
 } from '@expo-google-fonts/quicksand';
+import {
+  Tajawal_300Light,
+  Tajawal_400Regular,
+  Tajawal_500Medium,
+  Tajawal_700Bold,
+} from '@expo-google-fonts/tajawal';
 import { AppProviders } from '@/providers/AppProviders';
 import { AppColors } from '@/theme';
+// Side-effect: register the FCM background message handler at startup
+// (guarded no-op in Expo Go / web).
+import '@/lib/push/background';
 
 // Keep the native splash visible until the Quicksand weights are ready.
 SplashScreen.preventAutoHideAsync();
@@ -23,6 +32,10 @@ export default function RootLayout() {
     Quicksand_500Medium,
     Quicksand_600SemiBold,
     Quicksand_700Bold,
+    Tajawal_300Light,
+    Tajawal_400Regular,
+    Tajawal_500Medium,
+    Tajawal_700Bold,
   });
 
   useEffect(() => {

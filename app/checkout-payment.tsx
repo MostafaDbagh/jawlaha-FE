@@ -22,6 +22,7 @@ import { useAuthStore } from '@/store/authStore';
 import { showSnack } from '@/lib/snack';
 import { formatPrice } from '@/lib/currency';
 import { useCartStore } from '@/features/cart/cartStore';
+import { DELIVERY_FEE } from '@/lib/fees';
 import { useOrdersStore } from '@/features/orders/ordersStore';
 import { navArgs, useNavArgs } from '@/store/navArgs';
 
@@ -41,7 +42,9 @@ export default function CheckoutPaymentScreen() {
   const summary = useCartStore((s) => s.summary);
   const isPlacing = useOrdersStore((s) => s.isLoading);
 
-  const [leaveAtDoor, setLeaveAtDoor] = useState(false);
+  // No "leave at door" option: Jawlah is Cash on Delivery only, so the order
+  // has to be handed to someone who pays the driver — see
+  // [[jawlaha-cash-on-delivery-only]].
   const [dontRingBell, setDontRingBell] = useState(false);
   const [note, setNote] = useState<string>(
     (args?.delivery_note as string) ?? '',
@@ -58,8 +61,9 @@ export default function CheckoutPaymentScreen() {
     ? t('confirm_delivery_to', { type: deliveryType })
     : t('confirm_delivery_location');
 
-  // No delivery fee data from the backend cart yet -> 0 until known.
-  const deliveryFee = 0;
+  // Flat delivery fee — same value shown on the cart and address steps, and the
+  // same the backend charges when the order is placed.
+  const deliveryFee = summary.subtotal > 0 ? DELIVERY_FEE : 0;
   const total = summary.subtotal + deliveryFee;
 
   // ---- _buildSummaryRow ----
@@ -106,8 +110,9 @@ export default function CheckoutPaymentScreen() {
     }
     const order = await useOrdersStore.getState().createOrder({
       delivery_address: (args?.delivery_address as string) ?? null,
+      delivery_lat: (args?.delivery_lat as number) ?? null,
+      delivery_lng: (args?.delivery_lng as number) ?? null,
       delivery_note: note.trim() || null,
-      leave_at_door: leaveAtDoor,
       dont_ring_bell: dontRingBell,
     });
     if (order) {
@@ -187,9 +192,9 @@ export default function CheckoutPaymentScreen() {
 
         <View style={{ height: h(24) }} />
 
-        {/* Delivery Preferences */}
-        {buildToggleRow(t('leave_at_door'), leaveAtDoor, setLeaveAtDoor)}
-        <View style={{ height: h(8) }} />
+        {/* Delivery Preferences — "leave at door" intentionally omitted: with
+            Cash on Delivery the order must be handed over in person to collect
+            payment. */}
         {buildToggleRow(t('dont_ring_bell'), dontRingBell, setDontRingBell)}
 
         <View style={{ height: h(16) }} />
@@ -292,6 +297,25 @@ export default function CheckoutPaymentScreen() {
 
         <View style={{ height: h(16) }} />
 
+        {/* Final-order notice: once confirmed the order can't be cancelled or
+            changed (Keeta-style — also stated in the Terms & Privacy Policy). */}
+        <View style={styles.finalNoticeRow}>
+          <Ionicons
+            name="information-circle-outline"
+            size={sp(18)}
+            color={AppColors.textColor2}
+          />
+          <View style={{ width: w(8) }} />
+          <BaseText
+            title={t('order_final_notice')}
+            size={sp(12)}
+            color={AppColors.textColor2}
+            style={{ flex: 1 }}
+          />
+        </View>
+
+        <View style={{ height: h(12) }} />
+
         {/* Confirm Order Button */}
         <Pressable
           onPress={onConfirm}
@@ -381,6 +405,13 @@ const styles = StyleSheet.create({
     borderRadius: r(8),
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  finalNoticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: w(10),
+    borderRadius: r(8),
+    backgroundColor: 'rgba(143, 169, 189, 0.12)',
   },
   confirmLocationRow: {
     flexDirection: 'row',

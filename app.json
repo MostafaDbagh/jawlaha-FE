@@ -8,11 +8,19 @@
     "scheme": "jawlahsyreact",
     "userInterfaceStyle": "automatic",
     "android": {
+      "package": "com.mostafadbagh.jawlahsyreact",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false
+    },
+    "ios": {
+      "bundleIdentifier": "com.mostafadbagh.jawlah-sy-react",
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIBackgroundModes": ["remote-notification"]
+      }
     },
     "web": {
       "output": "static",
@@ -27,6 +35,21 @@
           "android": {
             "image": "./assets/images/splash-icon.png",
             "imageWidth": 76
+          }
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "يستخدم جولها موقعك لتحديد عنوان التوصيل بدقّة عند إضافة عنوان جديد."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static",
+            "forceStaticLinking": ["RNFBApp", "RNFBMessaging"]
           }
         }
       ]

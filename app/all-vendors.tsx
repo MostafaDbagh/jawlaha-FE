@@ -46,6 +46,7 @@ export default function AllVendorsScreen() {
             }
             renderItem={({ item: branch }) => {
               const badges: string[] = [];
+              if (branch.isFeatured) badges.push(t('featured'));
               if (branch.freeDelivery) badges.push(t('free_delivery'));
               if (branch.isOpen) badges.push(t('open_now'));
               return (

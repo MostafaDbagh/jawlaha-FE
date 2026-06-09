@@ -37,7 +37,34 @@ export function quicksand(weight?: TextStyle['fontWeight']): string {
   }
 }
 
-// Font families. The whole app now renders in Quicksand.
+// Arabic counterpart of Quicksand. Quicksand is Latin-only (Arabic text falls
+// back to the system font), so Arabic renders in Tajawal instead. Tajawal has no
+// 600 weight, so SemiBold maps to Medium.
+export const TajawalFamily = {
+  light: 'Tajawal_300Light',
+  regular: 'Tajawal_400Regular',
+  medium: 'Tajawal_500Medium',
+  semiBold: 'Tajawal_500Medium',
+  bold: 'Tajawal_700Bold',
+} as const;
+
+const QUICKSAND_TO_TAJAWAL: Record<string, string> = {
+  [QuicksandFamily.light]: TajawalFamily.light,
+  [QuicksandFamily.regular]: TajawalFamily.regular,
+  [QuicksandFamily.medium]: TajawalFamily.medium,
+  [QuicksandFamily.semiBold]: TajawalFamily.semiBold,
+  [QuicksandFamily.bold]: TajawalFamily.bold,
+};
+
+// Map a resolved Quicksand family to the locale font: Tajawal for Arabic,
+// Quicksand for everything else. Used by BaseText / inputs so every text picks
+// the right family without touching the 100+ call sites.
+export function localizeFontFamily(family: string | undefined, lang: string): string | undefined {
+  if (lang !== 'ar' || !family) return family;
+  return QUICKSAND_TO_TAJAWAL[family] ?? family;
+}
+
+// Font families. English renders in Quicksand; Arabic in Tajawal (see BaseText).
 export const Fonts = {
   sfPro: QuicksandFamily.regular,
   almarai: QuicksandFamily.regular,

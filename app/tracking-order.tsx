@@ -19,10 +19,21 @@ import { BaseText, AppImage } from '@/components';
 import { formatPrice } from '@/lib/currency';
 import { showSnack } from '@/lib/snack';
 import { useNavArgs } from '@/store/navArgs';
-import {
-  useOrdersStore,
-  type TimelineStep as TimelineStepData,
-} from '@/features/orders/ordersStore';
+import { useOrdersStore } from '@/features/orders/ordersStore';
+
+// Canonical order flow + the i18n key for each step's label. The timeline's
+// completed state is derived from the order's current `status` (not the stored
+// status_timeline flags), so the UI always reflects the real status — and the
+// labels render in the app language instead of the backend's English strings.
+const TIMELINE_STEPS: { status: string; labelKey: string }[] = [
+  { status: 'pending', labelKey: 'order_placed' },
+  { status: 'preparing', labelKey: 'preparing' },
+  { status: 'ready', labelKey: 'ready_to_pick_up' },
+  { status: 'on_the_way', labelKey: 'on_its_way' },
+  { status: 'delivered', labelKey: 'delivered' },
+];
+const ORDER_FLOW = TIMELINE_STEPS.map((s) => s.status);
+const POLL_MS = 15000;
 
 function TimelineStep({
   title,
@@ -97,13 +108,42 @@ export default function TrackingOrderScreen() {
   const isLoading = useOrdersStore((s) => s.isLoading);
 
   useEffect(() => {
-    if (orderId) useOrdersStore.getState().loadOrder(orderId);
+    if (!orderId) return;
+    // Initial load (shows the spinner), then poll silently so status changes
+    // pushed by the restaurant/driver appear without reopening the screen.
+    useOrdersStore.getState().loadOrder(orderId);
+    const timer = setInterval(() => {
+      useOrdersStore.getState().refreshOrder(orderId);
+    }, POLL_MS);
+    return () => clearInterval(timer);
   }, [orderId]);
 
-  const timeline: TimelineStepData[] = order?.status_timeline ?? [];
+  // Derive each step's completed state from the order's current status, plus
+  // the timestamp for that step from the backend timeline when available.
+  const atByStatus = new Map(
+    (order?.status_timeline ?? []).map((s) => [s.status, s.at] as const),
+  );
+  const currentIdx = ORDER_FLOW.indexOf(order?.status ?? 'pending');
+  const timeline = TIMELINE_STEPS.map((s, i) => ({
+    title: t(s.labelKey),
+    subtitle: formatTime(atByStatus.get(s.status) ?? null),
+    done: i <= currentIdx,
+  }));
   const eta = order?.eta_minutes;
   const driver = order?.driver ?? null;
   const items = order?.items ?? [];
+
+  // Dial the assigned driver. Cash-on-delivery means the customer often needs to
+  // reach the driver directly, so this is wired to both the number and the
+  // Call button below.
+  const callDriver = () => {
+    const number = String(driver?.phone ?? '').replace(/\s/g, '');
+    if (!number) {
+      showSnack(t('calling_driver'), 'info');
+      return;
+    }
+    Linking.openURL(`tel:${number}`).catch(() => showSnack(number, 'info'));
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -118,6 +158,25 @@ export default function TrackingOrderScreen() {
           {/* driver marker */}
           <View style={styles.markerWrap}>
             <Ionicons name="location-sharp" size={r(40)} color="orange" />
+          </View>
+        </View>
+
+        {/* Live map coming soon — chip sits in the visible map area below the
+            app bar (the sheet covers the lower half). */}
+        <View style={styles.comingSoonWrap} pointerEvents="none">
+          <View style={styles.comingSoonChip}>
+            <MaterialIcons
+              name="schedule"
+              size={sp(13)}
+              color={AppColors.primaryColor}
+            />
+            <View style={{ width: w(6) }} />
+            <BaseText
+              title={t('coming_soon')}
+              size={sp(12)}
+              fontWeight="600"
+              color={AppColors.primaryColor}
+            />
           </View>
         </View>
 
@@ -188,8 +247,8 @@ export default function TrackingOrderScreen() {
               {timeline.map((step, index) => (
                 <TimelineStep
                   key={index}
-                  title={step.label ?? step.status}
-                  subtitle={formatTime(step.at)}
+                  title={step.title}
+                  subtitle={step.subtitle}
                   isCompleted={step.done}
                   isLast={index === timeline.length - 1}
                 />
@@ -198,18 +257,31 @@ export default function TrackingOrderScreen() {
               <View style={styles.divider} />
               <View style={{ height: h(16) }} />
 
-              {/* Driver Card — only when a driver is assigned */}
+              {/* Driver section — always shown so the customer knows where the
+                  driver's details will appear. Cash-on-delivery makes reaching
+                  the driver important, so the name + phone number are front and
+                  centre, with the number itself tappable to dial. */}
+              <BaseText
+                title={t('your_driver')}
+                style={{
+                  fontSize: sp(16),
+                  fontFamily: quicksand('bold'),
+                  color: AppColors.black,
+                }}
+              />
+              <View style={{ height: h(12) }} />
+
               {driver ? (
                 <View style={styles.driverCard}>
                   <AppImage
                     source={driver.avatar || ''}
-                    width={r(48)}
-                    height={r(48)}
-                    borderRadius={r(24)}
+                    width={r(52)}
+                    height={r(52)}
+                    borderRadius={r(26)}
                     style={styles.avatar}
                   />
                   <View style={{ width: w(12) }} />
-                  <View style={{ alignItems: 'flex-start' }}>
+                  <View style={{ flex: 1, alignItems: 'flex-start' }}>
                     <BaseText
                       title={driver.name ?? ''}
                       style={{
@@ -220,7 +292,7 @@ export default function TrackingOrderScreen() {
                     />
                     {!!driver.vehicle && (
                       <>
-                        <View style={{ height: h(4) }} />
+                        <View style={{ height: h(2) }} />
                         <BaseText
                           title={driver.vehicle}
                           style={{ fontSize: sp(12), color: AppColors.textColor2 }}
@@ -229,70 +301,59 @@ export default function TrackingOrderScreen() {
                     )}
                     {!!driver.phone && (
                       <>
-                        <View style={{ height: h(4) }} />
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <View style={{ height: h(6) }} />
+                        <BaseText
+                          title={t('driver_phone')}
+                          style={{ fontSize: sp(11), color: AppColors.textColor2 }}
+                        />
+                        <Pressable
+                          onPress={callDriver}
+                          hitSlop={6}
+                          style={{ flexDirection: 'row', alignItems: 'center' }}
+                        >
                           <Ionicons
-                            name="call-outline"
-                            size={sp(12)}
-                            color={AppColors.textColor2}
+                            name="call"
+                            size={sp(15)}
+                            color={AppColors.primaryColor}
                           />
-                          <View style={{ width: w(4) }} />
+                          <View style={{ width: w(6) }} />
                           <BaseText
                             title={driver.phone}
-                            style={{ fontSize: sp(12), color: AppColors.textColor2 }}
+                            style={{
+                              fontFamily: quicksand('bold'),
+                              fontSize: sp(16),
+                              color: AppColors.primaryColor,
+                            }}
                           />
-                        </View>
+                        </Pressable>
                       </>
                     )}
                   </View>
-                  <View style={{ flex: 1 }} />
-                  <View style={{ alignItems: 'flex-end' }}>
-                    {!!driver.rating && (
-                      <View
-                        style={{ flexDirection: 'row', alignItems: 'center' }}
-                      >
-                        <Ionicons name="star" size={sp(16)} color="orange" />
-                        <BaseText
-                          title={driver.rating}
-                          style={{
-                            fontFamily: quicksand('bold'),
-                            fontSize: sp(14),
-                            color: AppColors.black,
-                          }}
-                        />
-                      </View>
-                    )}
-                    <View style={{ height: h(8) }} />
-                    <Pressable
-                      onPress={() => {
-                        const number = String(driver.phone ?? '').replace(/\s/g, '');
-                        if (!number) {
-                          showSnack(t('calling_driver'), 'info');
-                          return;
-                        }
-                        Linking.openURL(`tel:${number}`).catch(() =>
-                          showSnack(number, 'info'),
-                        );
-                      }}
-                      style={styles.callButton}
-                    >
-                      <Ionicons
-                        name="call"
-                        size={sp(14)}
-                        color={AppColors.primaryColor}
-                      />
+                  {!!driver.phone && (
+                    <Pressable onPress={callDriver} style={styles.callButton}>
+                      <Ionicons name="call" size={sp(16)} color={AppColors.white} />
                       <BaseText
                         title={t('call_driver')}
                         style={{
-                          color: AppColors.primaryColor,
-                          fontSize: sp(10),
+                          color: AppColors.white,
+                          fontSize: sp(11),
                           marginLeft: w(4),
+                          fontFamily: quicksand('600'),
                         }}
                       />
                     </Pressable>
-                  </View>
+                  )}
                 </View>
-              ) : null}
+              ) : (
+                <View style={styles.driverPlaceholder}>
+                  <ActivityIndicator color={AppColors.primaryColor} size="small" />
+                  <View style={{ width: w(12) }} />
+                  <BaseText
+                    title={t('finding_driver')}
+                    style={{ fontSize: sp(14), color: AppColors.textColor2, flex: 1 }}
+                  />
+                </View>
+              )}
 
               <View style={{ height: h(24) }} />
               <BaseText
@@ -336,6 +397,12 @@ export default function TrackingOrderScreen() {
                       title={`${item.qty} x ${item.name}`}
                       style={{ fontSize: sp(12), color: AppColors.textColor2 }}
                     />
+                    {Array.isArray(item.options) && item.options.length > 0 && (
+                      <BaseText
+                        title={item.options.map((o: any) => o?.name).filter(Boolean).join('، ')}
+                        style={{ fontSize: sp(11), color: AppColors.textColor2 }}
+                      />
+                    )}
                   </View>
                   <BaseText
                     title={formatPrice(item.unit_price * item.qty)}
@@ -369,6 +436,26 @@ const styles = StyleSheet.create({
   },
   markerWrap: {
     position: 'absolute',
+  },
+  comingSoonWrap: {
+    position: 'absolute',
+    top: h(72),
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  comingSoonChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: AppColors.white,
+    paddingHorizontal: w(12),
+    paddingVertical: h(6),
+    borderRadius: r(16),
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 3,
   },
   centerFill: {
     flex: 1,
@@ -418,11 +505,19 @@ const styles = StyleSheet.create({
   callButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: w(8),
-    minHeight: h(24),
-    borderWidth: 1,
-    borderColor: AppColors.primaryColor,
+    paddingHorizontal: w(12),
+    minHeight: h(36),
+    backgroundColor: AppColors.primaryColor,
     borderRadius: r(20),
+  },
+  driverPlaceholder: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: w(14),
+    borderWidth: 1,
+    borderColor: AppColors.lightGreyV2,
+    borderRadius: r(12),
+    backgroundColor: AppColors.backgroundColor,
   },
   summaryImage: {
     backgroundColor: AppColors.lightGreyV2,

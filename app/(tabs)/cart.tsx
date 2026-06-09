@@ -37,6 +37,18 @@ interface VendorGroup {
   items: CartItem[];
 }
 
+// Sub-label under the item name (e.g. "Extra ripe") built from the chosen
+// options/variation, when present. Empty string hides the row.
+function optionLabel(item: CartItem): string {
+  if (Array.isArray(item.options)) {
+    return item.options
+      .map((o: any) => o?.name ?? o?.label ?? o?.value)
+      .filter(Boolean)
+      .join(', ');
+  }
+  return '';
+}
+
 export default function CartScreen() {
   const router = useRouter();
 
@@ -164,22 +176,30 @@ export default function CartScreen() {
                   </View>
 
                   {/* Items in this vendor group */}
-                  {g.items.map((item) => (
-                    <CartItemCard
-                      key={`${item.product_id}-${item.variation_id ?? ''}`}
-                      name={item.name}
-                      description=""
-                      price={`${formatPrice(item.unit_price)} × ${item.qty}`}
-                      imageUrl={item.image ?? ''}
-                      quantity={item.qty}
-                      onIncrement={() => useCartStore.getState().updateItem(item.product_id, item.qty + 1)}
-                      onDecrement={() => {
-                        if (item.qty <= 1) useCartStore.getState().removeItem(item.product_id);
-                        else useCartStore.getState().updateItem(item.product_id, item.qty - 1);
-                      }}
-                      onDelete={() => useCartStore.getState().removeItem(item.product_id)}
-                    />
-                  ))}
+                  {g.items.map((item) => {
+                    // Prefer the per-line id so duplicate products with different
+                    // add-ons are addressed (and keyed) independently.
+                    const lineKey = item.id ?? item.product_id;
+                    const optionsTotal = Array.isArray(item.options)
+                      ? item.options.reduce((s: number, o: any) => s + (Number(o?.price) || 0), 0)
+                      : 0;
+                    return (
+                      <CartItemCard
+                        key={lineKey}
+                        name={item.name}
+                        description={optionLabel(item)}
+                        price={`${formatPrice(item.unit_price + optionsTotal)} × ${item.qty}`}
+                        imageUrl={item.image ?? ''}
+                        quantity={item.qty}
+                        onIncrement={() => useCartStore.getState().updateItem(lineKey, item.qty + 1)}
+                        onDecrement={() => {
+                          if (item.qty <= 1) useCartStore.getState().removeItem(lineKey);
+                          else useCartStore.getState().updateItem(lineKey, item.qty - 1);
+                        }}
+                        onDelete={() => useCartStore.getState().removeItem(lineKey)}
+                      />
+                    );
+                  })}
 
                   {/* Add More Items */}
                   <Pressable
@@ -231,29 +251,30 @@ export default function CartScreen() {
           </ScrollView>
         )}
 
-        {/* Bottom Buttons */}
+        {/* Bottom Buttons — "Proceed to checkout" only makes sense with items
+            in the cart, so an empty cart shows just "Continue shopping". */}
         <View style={styles.bottomBar}>
           <Pressable style={styles.outlinedButton} onPress={() => router.push('/(tabs)')}>
             <BaseText title={t('continue_shopping')} style={styles.outlinedButtonText} />
           </Pressable>
-          <View style={{ height: h(12) }} />
-          <Pressable
-            style={styles.elevatedButton}
-            onPress={() => {
-              if (!useAuthStore.getState().isLoggedIn) {
-                showSnack(t('login_required_to_order'), 'info');
-                router.push('/login');
-                return;
-              }
-              if (items.length === 0) {
-                showSnack(t('empty_cart'), 'info');
-                return;
-              }
-              router.push('/checkout-address');
-            }}
-          >
-            <BaseText title={t('proceed_to_checkout')} style={styles.elevatedButtonText} />
-          </Pressable>
+          {items.length > 0 && (
+            <>
+              <View style={{ height: h(12) }} />
+              <Pressable
+                style={styles.elevatedButton}
+                onPress={() => {
+                  if (!useAuthStore.getState().isLoggedIn) {
+                    showSnack(t('login_required_to_order'), 'info');
+                    router.push('/login');
+                    return;
+                  }
+                  router.push('/checkout-address');
+                }}
+              >
+                <BaseText title={t('proceed_to_checkout')} style={styles.elevatedButtonText} />
+              </Pressable>
+            </>
+          )}
         </View>
       </View>
     </SafeAreaView>

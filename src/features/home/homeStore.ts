@@ -42,29 +42,9 @@ function createCategoriesPageEntity(
   };
 }
 
-// TODO: native FCM/device-token fetch (firebase_messaging getToken). Stubbed.
-async function getFCMToken(): Promise<string | null> {
-  // TODO: integrate expo-notifications / firebase to return the real device FCM token.
-  return null;
-}
-
-// TODO: native device details (getDeviceDetails -> [model, name, ?, id, manufacturer]).
-async function getDeviceDetails(): Promise<(string | undefined)[]> {
-  // TODO: integrate expo-device to populate [model, name, _, id, manufacturer].
-  return [];
-}
-
-// TODO: native package info (PackageInfo.fromPlatform). Stubbed.
-function getPackageInfo(): { version: string; buildNumber: string } {
-  // TODO: integrate expo-application / Constants for real version + buildNumber.
-  return { version: '', buildNumber: '' };
-}
-
-// TODO: native platform info (dart:io Platform). Stubbed.
-const Platform = {
-  operatingSystem: 'ios',
-  operatingSystemVersion: '',
-};
+// FCM token registration now lives in the dedicated push module
+// (src/lib/push + src/features/push/usePushRegistration). This store no longer
+// owns it.
 
 interface HomeStore {
   // ---- Data Lists ----
@@ -91,7 +71,6 @@ interface HomeStore {
   oldSearchVale: string | null;
 
   // ---- Actions ----
-  saveFCMToken: () => Promise<void>;
   getHomeData: () => Promise<void>;
   getCurrentLocation: () => Promise<void>;
   getCategories: (opts?: { isRefresh?: boolean }) => Promise<void>;
@@ -126,26 +105,6 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
   leaverLoader: false,
   buttonLoader: false,
   oldSearchVale: '',
-
-  saveFCMToken: async () => {
-    const fcmToken = await getFCMToken();
-    if (fcmToken == null) return;
-    const deviceDetails = await getDeviceDetails();
-    const packageInfo = getPackageInfo();
-    await repository.saveFCMToken({
-      firebaseToken: fcmToken,
-      deviceType: Platform.operatingSystem,
-      deviceName: deviceDetails[1] ?? '',
-      deviceId: deviceDetails[3] ?? '',
-      deviceModel: deviceDetails[0] ?? '',
-      deviceManufacturer: deviceDetails[4] ?? '',
-      appVersion: packageInfo.version,
-      buildNumber: packageInfo.buildNumber,
-      appLanguage: (await prefs.getAppLanguage()) ?? '',
-      platformVersion: Platform.operatingSystemVersion,
-      timezone: 'UTF',
-    });
-  },
 
   getHomeData: async () => {
     try {

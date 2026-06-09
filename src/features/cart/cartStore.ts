@@ -4,6 +4,8 @@ import { ordersRepo } from '@/data/repository/orders';
 import { showSnack } from '@/lib/snack';
 
 export interface CartItem {
+  // Per-line id (distinguishes the same product added with different add-ons).
+  id?: string;
   product_id: string;
   variation_id?: string | null;
   branch_id?: string | null;
@@ -32,9 +34,16 @@ interface CartState {
   isLoading: boolean;
   loadCart: () => Promise<void>;
   addItem: (args: { product_id: string; qty?: number; variation_id?: string | null; options?: any }) => Promise<AddItemResult>;
-  updateItem: (productId: string, qty: number) => Promise<void>;
-  removeItem: (productId: string) => Promise<void>;
+  // `lineKey` is a cart line's id (preferred) or its product_id (fallback).
+  updateItem: (lineKey: string, qty: number) => Promise<void>;
+  removeItem: (lineKey: string) => Promise<void>;
   clear: () => Promise<void>;
+}
+
+// A line key matches a cart line by its id (preferred) or, for lines that
+// predate per-line ids, by product_id.
+function matchesLine(it: CartItem, lineKey: string): boolean {
+  return it.id === lineKey || it.product_id === lineKey;
 }
 
 function applyCart(set: any, cart: any) {
@@ -99,18 +108,18 @@ export const useCartStore = create<CartState>((set, get) => ({
     return { ok: false, reset: false };
   },
 
-  async updateItem(productId, qty) {
+  async updateItem(lineKey, qty) {
     // qty 0 (or less) means "remove the line" — keep that intent explicit.
-    if (qty <= 0) return get().removeItem(productId);
+    if (qty <= 0) return get().removeItem(lineKey);
 
     // Optimistic update so the stepper responds instantly; roll back on failure.
     const prev = get().items;
     const next = prev.map((it) =>
-      it.product_id === productId ? { ...it, qty } : it,
+      matchesLine(it, lineKey) ? { ...it, qty } : it,
     );
     set({ items: next, summary: computeSummary(next) });
 
-    const res = await ordersRepo.updateCartItem(productId, qty);
+    const res = await ordersRepo.updateCartItem(lineKey, qty);
     if (res.success) {
       // Reconcile with the authoritative cart echoed back by the server.
       applyCart(set, cartFromResponse(res));
@@ -120,12 +129,12 @@ export const useCartStore = create<CartState>((set, get) => ({
     }
   },
 
-  async removeItem(productId) {
+  async removeItem(lineKey) {
     const prev = get().items;
-    const next = prev.filter((it) => it.product_id !== productId);
+    const next = prev.filter((it) => !matchesLine(it, lineKey));
     set({ items: next, summary: computeSummary(next) });
 
-    const res = await ordersRepo.removeCartItem(productId);
+    const res = await ordersRepo.removeCartItem(lineKey);
     if (res.success) {
       applyCart(set, cartFromResponse(res));
     } else {

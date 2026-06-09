@@ -13,6 +13,10 @@ export interface Address {
   details: string;
   icon: AddressIcon;
   isDefault: boolean;
+  // Optional precise pin from the map picker. Sent with the order so the driver
+  // can navigate to the exact spot, not just the typed address text.
+  lat?: number;
+  lng?: number;
 }
 
 // v2: the v1 key was seeded with demo Home/Work addresses that got persisted on
@@ -28,6 +32,7 @@ interface AddressState {
   selectedId: string | null;
   hydrated: boolean;
   hydrate: () => Promise<void>;
+  reset: () => Promise<void>;
   addAddress: (a: Omit<Address, 'id'>) => Promise<Address>;
   updateAddress: (id: string, patch: Partial<Omit<Address, 'id'>>) => Promise<void>;
   removeAddress: (id: string) => Promise<void>;
@@ -70,6 +75,14 @@ export const useAddressStore = create<AddressState>((set, get) => ({
     const items = normalizeDefaults((await storage.getJSON<Address[]>(STORAGE_KEY)) ?? []);
     const def = items.find((a) => a.isDefault) ?? items[0];
     set({ addresses: items, selectedId: def?.id ?? null, hydrated: true });
+  },
+
+  // Wipe the device-local addresses. Called on register/logout so a different
+  // account never inherits the previous user's addresses or default selection
+  // (these are stored per-device, not per-user, until a backend API exists).
+  async reset() {
+    await storage.remove(STORAGE_KEY);
+    set({ addresses: [], selectedId: null, hydrated: false });
   },
 
   async addAddress(a) {

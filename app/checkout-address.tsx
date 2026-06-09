@@ -55,6 +55,10 @@ export default function CheckoutAddressScreen() {
     navArgs.set({
       ...navArgs.get(),
       delivery_address: selected.details,
+      // Precise map pin (if the user set one) so the order carries coordinates
+      // the driver can navigate to, not just the typed address text.
+      delivery_lat: selected.lat,
+      delivery_lng: selected.lng,
       delivery_note: instructions.trim() || undefined,
       // Carried to the payment page so the user double-checks the delivery
       // location (Home/Office) before the order is placed.

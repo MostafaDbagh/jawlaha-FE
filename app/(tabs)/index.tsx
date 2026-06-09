@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { AppColors, w, h, r, sp } from '@/theme';
@@ -33,6 +33,56 @@ import { useHomeStore } from '@/features/home/homeStore';
 import { useCityStore } from '@/features/location/cityStore';
 import { cityLabel } from '@/lib/cities';
 import type { BranchModel } from '@/types/branch';
+
+// A faint food icon is stamped behind each offer card to give it life. The
+// icon is guessed from the offer's title/description (Arabic + English) so a
+// shawarma deal shows a kebab, a pizza deal a pizza, etc.
+type OfferIcon =
+  | { lib: 'mi'; name: keyof typeof MaterialIcons.glyphMap }
+  | { lib: 'mci'; name: keyof typeof MaterialCommunityIcons.glyphMap };
+
+function offerWatermarkIcon(offer: {
+  title?: string;
+  description?: string;
+}): OfferIcon {
+  const s = `${offer.title ?? ''} ${offer.description ?? ''}`.toLowerCase();
+  const has = (...kw: string[]) => kw.some((k) => s.includes(k));
+  if (has('pizza', 'بيتزا')) return { lib: 'mci', name: 'pizza' };
+  if (has('shawarma', 'شاورما', 'kebab', 'كباب', 'wrap', 'مشاوي', 'مشوي', 'grill', 'مشكل'))
+    return { lib: 'mi', name: 'kebab-dining' };
+  if (has('burger', 'sandwich', 'برجر', 'برغر', 'ساندويش', 'ساندويتش'))
+    return { lib: 'mci', name: 'hamburger' };
+  if (has('sweet', 'dessert', 'cake', 'حلو', 'حلويات', 'كيك', 'كنافة', 'بقلاوة', 'mezze', 'مزة'))
+    return { lib: 'mci', name: 'cupcake' };
+  if (has('coffee', 'drink', 'juice', 'قهوة', 'مشروب', 'عصير', 'مشروبات'))
+    return { lib: 'mci', name: 'coffee' };
+  if (has('chicken', 'broast', 'دجاج', 'فروج', 'بروست'))
+    return { lib: 'mci', name: 'food-drumstick' };
+  if (has('rice', 'mandi', 'biryani', 'أرز', 'رز', 'مندي', 'برياني', 'كبسة'))
+    return { lib: 'mci', name: 'rice' };
+  if (has('pasta', 'noodle', 'معكرونة', 'باستا', 'نودلز'))
+    return { lib: 'mci', name: 'noodles' };
+  return { lib: 'mci', name: 'silverware-fork-knife' };
+}
+
+function OfferWatermark({ offer }: { offer: { title?: string; description?: string } }) {
+  const ic = offerWatermarkIcon(offer);
+  return ic.lib === 'mci' ? (
+    <MaterialCommunityIcons
+      name={ic.name}
+      size={r(48)}
+      color="rgba(255,255,255,0.18)"
+      style={styles.offerWatermark}
+    />
+  ) : (
+    <MaterialIcons
+      name={ic.name}
+      size={r(48)}
+      color="rgba(255,255,255,0.18)"
+      style={styles.offerWatermark}
+    />
+  );
+}
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -80,15 +130,17 @@ export default function HomeScreen() {
           [v.name, v.description].some((f) => (f ?? '').toLowerCase().includes(q)),
         );
   }, [popularVendors, nearbyBranches, q]);
-  const filteredBranches = useMemo(
-    () =>
-      !q
-        ? nearbyBranches
-        : nearbyBranches.filter((b) =>
-            [b.name, b.vendorName, b.city].some((f) => (f ?? '').toLowerCase().includes(q)),
-          ),
-    [nearbyBranches, q],
-  );
+  const filteredBranches = useMemo(() => {
+    const list = !q
+      ? nearbyBranches
+      : nearbyBranches.filter((b) =>
+          [b.name, b.vendorName, b.city].some((f) => (f ?? '').toLowerCase().includes(q)),
+        );
+    // Admin-featured restaurants lead the list (stable otherwise). The backend
+    // already returns them first; re-sorting here keeps the order after the
+    // city/search filter and survives any future client-side reordering.
+    return [...list].sort((a, b) => (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0));
+  }, [nearbyBranches, q]);
 
   useEffect(() => {
     useHomeStore.getState().getHomeData();
@@ -124,6 +176,7 @@ export default function HomeScreen() {
 
   const badgesFor = (branch: BranchModel): RestaurantBadge[] => {
     const badges: RestaurantBadge[] = [];
+    if (branch.isFeatured) badges.push({ text: t('featured'), type: 'featured' });
     if (branch.freeDelivery) badges.push({ text: t('free_delivery'), type: 'free' });
     return badges;
   };
@@ -203,6 +256,7 @@ export default function HomeScreen() {
                 }
                 renderItem={({ item: o }) => (
                   <Pressable onPress={() => router.push('/all-vendors')} style={styles.offerCard}>
+                    <OfferWatermark offer={o} />
                     <View style={styles.offerDiscountPill}>
                       <BaseText title={`${o.discountValue ?? 0}% ${t('off')}`} style={styles.offerDiscountText} />
                     </View>
@@ -351,6 +405,13 @@ const styles = StyleSheet.create({
     borderRadius: r(14),
     backgroundColor: AppColors.primaryColor,
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  offerWatermark: {
+    position: 'absolute',
+    top: h(10),
+    right: w(10),
+    transform: [{ rotate: '-10deg' }],
   },
   offerDiscountPill: {
     alignSelf: 'flex-start',

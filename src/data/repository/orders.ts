@@ -42,6 +42,8 @@ export async function clearCart(): Promise<CustomResponse> {
 // ----------------------------- Orders -----------------------------
 export async function createOrder(args: {
   delivery_address?: string | null;
+  delivery_lat?: number | null;
+  delivery_lng?: number | null;
   delivery_note?: string | null;
   leave_at_door?: boolean;
   dont_ring_bell?: boolean;
@@ -67,9 +69,9 @@ export async function getOrder(id: string): Promise<CustomResponse> {
   return await apiClient.getV2({ subUrl: `orders/${id}`, needToken: true, fromJson: identity });
 }
 
-export async function cancelOrder(id: string): Promise<CustomResponse> {
-  return await apiClient.patch({ subUrl: `orders/${id}/cancel`, needToken: true });
-}
+// No cancelOrder: a placed Cash-on-Delivery order is final and cannot be
+// cancelled or edited by the customer (Keeta-style); the backend exposes no
+// customer cancel endpoint.
 
 export const ordersRepo = {
   getCart,
@@ -80,5 +82,4 @@ export const ordersRepo = {
   createOrder,
   getOrders,
   getOrder,
-  cancelOrder,
 };

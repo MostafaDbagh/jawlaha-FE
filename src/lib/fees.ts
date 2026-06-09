@@ -2,7 +2,9 @@
 // The backend cart only returns a subtotal today; delivery fee / VAT / promo are
 // computed client-side here until dedicated endpoints exist.
 
-// Flat delivery fee placeholder (SYP). Replace with a backend value when available.
+// Flat delivery fee (SYP) charged on every order. Kept in sync with the backend
+// (jawlahapp/src/controllers/orderController.js DELIVERY_FEE) so the quoted total
+// matches what the customer is actually charged.
 export const DELIVERY_FEE = 10000;
 
 // Syria has no consumer VAT on these orders, so the tax line stays at 0 while

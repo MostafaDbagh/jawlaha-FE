@@ -1,9 +1,9 @@
 // Ported from lib/screens/cart/checkout_success_screen.dart (CheckoutSuccessScreen)
-import React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, TouchableOpacity, StyleSheet, BackHandler } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect, Stack } from 'expo-router';
 
 import { AppColors, w, h, r, sp, TextStyles } from '@/theme';
 import { quicksand } from '@/theme/typography';
@@ -18,8 +18,23 @@ export default function CheckoutSuccessScreen() {
   const args = useNavArgs((s) => s.args);
   const order = args?.order;
 
+  // The order is placed and final at this point — the customer must not be able
+  // to navigate back into the checkout flow to cancel or edit it (Keeta-style).
+  // Intercept Android hardware-back and send the user home instead of returning
+  // to the payment/cart screens. (iOS swipe-back is disabled via Stack.Screen.)
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        router.replace('/(tabs)');
+        return true;
+      });
+      return () => sub.remove();
+    }, [router]),
+  );
+
   return (
     <SafeAreaView style={styles.safe}>
+      <Stack.Screen options={{ gestureEnabled: false }} />
       <View style={styles.container}>
         {/* const Spacer(flex: 2) */}
         <View style={{ flex: 2 }} />

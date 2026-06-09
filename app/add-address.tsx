@@ -23,7 +23,7 @@ import { useI18n } from '@/i18n';
 import { useNavArgs } from '@/store/navArgs';
 import { useAddressStore, type AddressIcon } from '@/features/addresses/addressStore';
 import { useCityStore } from '@/features/location/cityStore';
-import { SYRIAN_CITIES, cityLabel, type City } from '@/lib/cities';
+import { SYRIAN_CITIES, cityLabel, type City, type LatLng } from '@/lib/cities';
 
 // Preset address names for the address-name dropdown.
 const ADDRESS_NAME_KEYS = ['home_label', 'office_label', 'work_label', 'other_label'] as const;
@@ -57,6 +57,13 @@ export default function AddAddressScreen() {
   const [notes, setNotes] = useState<string>('');
   const [cityOpen, setCityOpen] = useState<boolean>(false);
   const [nameOpen, setNameOpen] = useState<boolean>(false);
+  // Optional precise pin (preserved on edit; the map picker is disabled for now).
+  const [coords] = useState<LatLng | null>(
+    existing?.lat != null && existing?.lng != null
+      ? { lat: existing.lat, lng: existing.lng }
+      : null,
+  );
+
 
   const onSave = async () => {
     const title = name.trim() || t('home_label');
@@ -67,13 +74,21 @@ export default function AddAddressScreen() {
       .join(', ');
     const store = useAddressStore.getState();
     if (isEdit && addressId) {
-      await store.updateAddress(addressId, { title, details, icon: iconForName(title) });
+      await store.updateAddress(addressId, {
+        title,
+        details,
+        icon: iconForName(title),
+        lat: coords?.lat,
+        lng: coords?.lng,
+      });
     } else {
       await store.addAddress({
         title,
         details,
         icon: iconForName(title),
         isDefault: store.addresses.length === 0,
+        lat: coords?.lat,
+        lng: coords?.lng,
       });
     }
     // Choosing your address city also sets the city the home filters restaurants by.
@@ -164,6 +179,36 @@ export default function AddAddressScreen() {
             />
             <MaterialIcons name="arrow-drop-down" size={sp(24)} color={AppColors.textColor2} />
           </Pressable>
+
+          <View style={{ height: h(16) }} />
+
+          {/* Pin exact location on the map — temporarily disabled (coming soon — re-enable when map picker ships) */}
+          {buildLabel(t('select_location_on_map'), 'map')}
+          <View style={{ height: h(8) }} />
+          <View style={[styles.mapRow, styles.mapRowDisabled]}>
+            <MaterialIcons name="add-location-alt" size={sp(22)} color={AppColors.textColor2} />
+            <View style={{ width: w(10) }} />
+            <View style={{ flex: 1 }}>
+              <BaseText
+                title={t('select_location_on_map')}
+                style={{
+                  fontSize: sp(15),
+                  fontFamily: quicksand('500'),
+                  color: AppColors.textColor2,
+                }}
+              />
+            </View>
+            <View style={styles.soonBadge}>
+              <BaseText
+                title={t('coming_soon')}
+                style={{
+                  fontSize: sp(11),
+                  fontFamily: quicksand('600'),
+                  color: AppColors.primaryColorTheme,
+                }}
+              />
+            </View>
+          </View>
 
           <View style={{ height: h(16) }} />
 
@@ -418,6 +463,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  mapRow: {
+    borderWidth: 1,
+    borderColor: AppColors.lightGreyV2,
+    borderRadius: r(8),
+    paddingHorizontal: w(16),
+    paddingVertical: h(14),
+    backgroundColor: AppColors.white,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  mapRowDisabled: {
+    backgroundColor: 'rgba(0,0,0,0.03)',
+  },
+  soonBadge: {
+    paddingHorizontal: w(8),
+    paddingVertical: h(4),
+    borderRadius: r(6),
+    backgroundColor: 'rgba(35,90,94,0.10)',
   },
   modalOverlay: {
     flex: 1,

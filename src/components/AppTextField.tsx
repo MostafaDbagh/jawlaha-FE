@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { AppColors, sp, Radii } from '@/theme';
 import { Responsive } from '@/theme/responsive';
-import { QuicksandFamily, quicksand } from '@/theme/typography';
+import { QuicksandFamily, quicksand, localizeFontFamily } from '@/theme/typography';
 import { isRTL, rowDirection } from '@/i18n';
 import { BaseText } from './BaseText';
 
@@ -140,7 +140,7 @@ export function AppTextField(props: AppTextFieldProps) {
           }}
           onSubmitEditing={onSubmitEditing}
           autoCorrect={false}
-          style={[styles.input, style]}
+          style={[styles.input, { fontFamily: localizeFontFamily(QuicksandFamily.regular, rtl ? 'ar' : 'en') }, style]}
         />
         {suffixIcon ? <View style={styles.affix}>{suffixIcon}</View> : null}
       </View>

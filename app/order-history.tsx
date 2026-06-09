@@ -21,20 +21,30 @@ import { useOrdersStore, type Order } from '@/features/orders/ordersStore';
 // In-progress statuses (used for client-side filtering of the "In Progress" tab).
 const IN_PROGRESS_STATUSES = ['pending', 'preparing', 'ready', 'on_the_way'];
 
-// Map a backend status value to a display label, falling back to the raw value.
-// Active statuses collapse into a single "In Progress…" label like the design.
+// i18n key per backend status, so each order shows its ACTUAL current status
+// (matching the tracking screen) instead of a single collapsed "In Progress" label.
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  pending: 'pending',
+  preparing: 'preparing',
+  ready: 'ready_to_pick_up',
+  on_the_way: 'on_its_way',
+  delivered: 'delivered',
+  cancelled: 'cancelled',
+};
+
+// Map a backend status value to its display label, falling back to the raw value.
 function statusLabel(status: string): string {
-  if (status === 'delivered') return t('delivered');
-  if (status === 'cancelled') return t('cancelled');
-  if (IN_PROGRESS_STATUSES.includes(status)) return t('in_progress_status');
-  return status;
+  const key = STATUS_LABEL_KEYS[status];
+  return key ? t(key) : status;
 }
 
-// Status colors per the design: teal=delivered, orange=in-progress, red=cancelled.
+// Status chip color: teal=delivered, green=ready/on-the-way, orange=pending/preparing,
+// red=cancelled.
 function statusColor(status: string): string {
   if (status === 'cancelled') return AppColors.red ?? '#E53935';
-  if (IN_PROGRESS_STATUSES.includes(status)) return AppColors.orange;
-  return AppColors.primaryColor;
+  if (status === 'delivered') return AppColors.primaryColor;
+  if (status === 'ready' || status === 'on_the_way') return AppColors.green;
+  return AppColors.orange;
 }
 
 // Backend order ids are long UUIDs; show a compact upper-cased prefix so the
