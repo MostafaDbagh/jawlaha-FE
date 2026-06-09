@@ -30,8 +30,15 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# Secrets — never commit real env files or Firebase config. Only .env.example is tracked.
+.env
+.env.*
+!.env.example
 .env*.local
+GoogleService-Info.plist
+google-services.json
+*-adminsdk*.json
+firebase-service-account.json
 
 # typescript
 *.tsbuildinfo
