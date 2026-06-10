@@ -197,10 +197,18 @@ export default function ProductDetailsScreen() {
         <View style={styles.divider} />
         <View style={{ height: h(20) }} />
         <View style={styles.groupHeader}>
-          <BaseTextRaw
-            text={group.name ?? ''}
-            style={{ fontSize: sp(17), fontWeight: '700', color: AppColors.textColorTheme }}
-          />
+          <View style={{ flex: 1, marginEnd: w(8) }}>
+            <BaseTextRaw
+              text={group.name ?? ''}
+              style={{ fontSize: sp(17), fontWeight: '700', color: AppColors.textColorTheme }}
+            />
+            {!!group.description && (
+              <BaseTextRaw
+                text={group.description}
+                style={{ fontSize: sp(12), fontWeight: '400', color: AppColors.textColor2, marginTop: h(2) }}
+              />
+            )}
+          </View>
           <View
             style={[styles.groupHintPill, group.required && styles.groupHintPillRequired]}
           >

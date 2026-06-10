@@ -26,6 +26,9 @@ export interface BranchModel {
   reviewsCount?: number;
   isOpen?: boolean;
   vendorName?: string;
+  // Restaurant category keys set by the owner (up to 3). Resolved to labels for
+  // the card's "cuisine" line via lib/cuisines.
+  cuisines?: string[];
   distanceKm?: number;
   // True when the branch's restaurant is an admin "editor's pick" — surfaced
   // first on the home and tagged with a "مميز" badge.
@@ -58,6 +61,7 @@ export function parseBranchModel(json: any): BranchModel {
     reviewsCount: json?.total_reviews != null ? Number(json.total_reviews) : undefined,
     isOpen: json?.is_open,
     vendorName: json?.vendor?.name,
+    cuisines: Array.isArray(json?.vendor?.cuisines) ? json.vendor.cuisines : undefined,
     distanceKm: json?.distance != null ? Number(json.distance) : undefined,
     isFeatured: json?.vendor?.is_featured ?? json?.is_featured ?? false,
   };

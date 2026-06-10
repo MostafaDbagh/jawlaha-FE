@@ -40,8 +40,12 @@ export default function VendorDetailsScreen() {
 
   const argBranch = args.branch as BranchModel | undefined;
   const argVendor = args.vendor as VendorModel | undefined;
+  // The cart's "Add More Items" passes only the order restaurant's branch id;
+  // resolve the full branch from it (see the getBranch effect below).
+  const argBranchId = args.branchId as string | number | undefined;
 
   const vendorBranches = useBranchesStore((s) => s.vendorBranches);
+  const currentBranch = useBranchesStore((s) => s.currentBranch);
   const subcategories = useProductStore((s) => s.subcategories);
   const products = useProductStore((s) => s.products);
   const isLoading = useProductStore((s) => s.isLoading);
@@ -62,9 +66,21 @@ export default function VendorDetailsScreen() {
     }
   };
 
-  // Resolve the active branch: passed directly, or the first vendor branch.
+  // Resolve the active branch: passed directly, fetched by id (cart flow), or
+  // the first vendor branch.
   const branch: BranchModel | undefined =
-    argBranch ?? (argVendor ? vendorBranches[0] : undefined);
+    argBranch ??
+    (argBranchId != null && currentBranch && String(currentBranch.id) === String(argBranchId)
+      ? currentBranch
+      : undefined) ??
+    (argVendor ? vendorBranches[0] : undefined);
+
+  // Fetch the branch by id when only a branchId was passed (cart "Add More Items").
+  useEffect(() => {
+    if (!argBranch && argBranchId != null) {
+      useBranchesStore.getState().getBranch(argBranchId as any);
+    }
+  }, [argBranch, argBranchId]);
 
   // If only a vendor is passed, fetch its branches.
   useEffect(() => {

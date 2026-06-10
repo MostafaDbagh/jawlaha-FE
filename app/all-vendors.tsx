@@ -7,6 +7,7 @@ import { AppColors, w, h } from '@/theme';
 import { t } from '@/i18n';
 import { AppBar, BaseText } from '@/components';
 import { VendorListCard } from '@/components/cards';
+import { cuisineLabels } from '@/lib/cuisines';
 import { navArgs } from '@/store/navArgs';
 import { useBranchesStore } from '@/features/branches/branchesStore';
 
@@ -56,6 +57,7 @@ export default function AllVendorsScreen() {
                   logoImage={branch.image ?? ''}
                   rating={branch.rating ?? 0}
                   reviewCount={branch.reviewsCount ?? 0}
+                  cuisine={cuisineLabels(branch.cuisines)}
                   badges={badges}
                   buttonText={t('view_menu')}
                   onPress={() => {

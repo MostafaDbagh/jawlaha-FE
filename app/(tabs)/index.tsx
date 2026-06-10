@@ -27,8 +27,10 @@ import {
   RestaurantRowCard,
 } from '@/components/cards';
 import type { RestaurantBadge } from '@/components/cards/RestaurantRowCard';
+import { cuisineLabels } from '@/lib/cuisines';
 import { navArgs } from '@/store/navArgs';
 import { useAuthStore } from '@/store/authStore';
+import { useCartStore } from '@/features/cart/cartStore';
 import { useHomeStore } from '@/features/home/homeStore';
 import { useCityStore } from '@/features/location/cityStore';
 import { cityLabel } from '@/lib/cities';
@@ -89,8 +91,14 @@ export default function HomeScreen() {
 
   const { lang } = useI18n();
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
+  const cartCount = useCartStore((s) => s.summary.items_count);
   const city = useCityStore((s) => s.city);
   const cityHydrated = useCityStore((s) => s.hydrated);
+
+  // Keep the header basket badge in sync with the server cart.
+  useEffect(() => {
+    if (isLoggedIn) useCartStore.getState().loadCart();
+  }, [isLoggedIn]);
 
   const addressTitle = useHomeStore((s) => s.addressTitle);
   const banners = useHomeStore((s) => s.banners);
@@ -197,6 +205,8 @@ export default function HomeScreen() {
           address={city ? cityLabel(city, lang) : addressTitle}
           onPressLocation={isLoggedIn ? () => router.push('/select-city') : undefined}
           onPressNotifications={() => router.push('/notifications')}
+          onPressCart={() => router.push(isLoggedIn ? '/(tabs)/cart' : '/login')}
+          cartCount={cartCount}
           onPressLogin={isLoggedIn ? undefined : () => router.push('/login')}
         />
         <View style={{ height: h(16) }} />
@@ -333,8 +343,8 @@ export default function HomeScreen() {
           </Pressable>
         )}
 
-        {/* 4. Restaurants */}
-        {city && (isNearbyBranchesLoading || filteredBranches.length > 0) && (
+        {/* 4. Restaurants — every restaurant on the platform (not city-scoped). */}
+        {(isNearbyBranchesLoading || filteredBranches.length > 0) && (
           <>
             <View style={{ height: h(20) }} />
             <SectionHeader title={t('restaurants')} onViewAllTap={() => router.push('/all-vendors')} />
@@ -344,7 +354,7 @@ export default function HomeScreen() {
                 key={`rest-${branch.id ?? i}`}
                 name={branch.name ?? ''}
                 image={branch.image}
-                cuisine={branch.city ?? ''}
+                cuisine={cuisineLabels(branch.cuisines) || (branch.city ?? '')}
                 deliveryTime={branch.deliveryTime}
                 distanceKm={branch.distanceKm}
                 freeDelivery={branch.freeDelivery}

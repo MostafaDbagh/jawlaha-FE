@@ -7,7 +7,6 @@ import { create } from 'zustand';
 import { repository } from '@/data/repository';
 import { prefs } from '@/lib/storage';
 import { showSnack } from '@/lib/snack';
-import { useCityStore } from '@/features/location/cityStore';
 import { createPaginateReqEntity } from '@/types/entities';
 import { CategoryModel } from '@/types/category';
 import { VendorModel } from '@/types/vendor';
@@ -226,16 +225,11 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
 
   getNearbyBranches: async () => {
     try {
-      // Restaurants are scoped to the customer's selected city — a Latakia
-      // customer must not see Damascus restaurants. With no city chosen yet we
-      // show nothing and the home prompts the user to pick one.
-      const city = useCityStore.getState().city;
-      if (!city) {
-        set({ nearbyBranches: [], isNearbyBranchesLoading: false });
-        return;
-      }
+      // Home shows every restaurant on the platform — no city scoping — so none
+      // are hidden (e.g. branches saved with a localized city name like "دمشق"
+      // still appear alongside ones saved as "Damascus").
       set({ isNearbyBranchesLoading: true });
-      const result = await repository.getBranches({ city: city.en });
+      const result = await repository.getBranches();
       set({ nearbyBranches: result.success && Array.isArray(result.object) ? (result.object as BranchModel[]) : [] });
     } catch (e) {
       set({ nearbyBranches: [] });

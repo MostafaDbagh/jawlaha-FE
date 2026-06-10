@@ -14,6 +14,8 @@ export interface VendorListCardProps {
   logoImage: string;
   rating: number;
   reviewCount: number;
+  /** Restaurant categories line, e.g. "كافيه · مخبوزات". */
+  cuisine?: string;
   badges?: string[];
   onPress?: () => void;
   buttonText?: string;
@@ -25,6 +27,7 @@ export function VendorListCard({
   logoImage,
   rating,
   reviewCount,
+  cuisine,
   badges = [],
   onPress,
   buttonText,
@@ -84,6 +87,9 @@ export function VendorListCard({
             <BaseText title={`(${reviewCount}+)`} style={styles.reviewCount} />
           </View>
         </View>
+        {!!cuisine && (
+          <BaseText title={cuisine} numberOfLines={1} style={styles.cuisineText} />
+        )}
         <View style={{ height: h(12) }} />
 
         {/* Badges */}
@@ -196,6 +202,11 @@ const styles = StyleSheet.create({
   reviewCount: {
     fontSize: sp(12),
     color: AppColors.textColor2,
+  },
+  cuisineText: {
+    marginTop: h(4),
+    fontSize: sp(13),
+    color: AppColors.greyTextColorV3,
   },
   badgesWrap: {
     flexDirection: 'row',

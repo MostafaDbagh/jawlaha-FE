@@ -45,10 +45,12 @@ export interface ProductOptionItem {
 }
 
 // A group of add-ons (e.g. "المقبلات", "الحجم"). multiple=false → single-select.
+// `description` is an optional subtitle shown under the title (custom groups).
 export interface ProductOptionGroup {
   id?: string;
   kind?: string | null;
   name?: string;
+  description?: string | null;
   required?: boolean;
   multiple?: boolean;
   max?: number | null;
@@ -70,6 +72,7 @@ export function parseProductOptionGroup(json: any): ProductOptionGroup {
     id: json?.id != null ? String(json.id) : undefined,
     kind: json?.kind ?? null,
     name: json?.name,
+    description: json?.description ?? null,
     required: !!json?.required,
     // Default to multi-select unless explicitly false (matches backend default).
     multiple: json?.multiple !== false,

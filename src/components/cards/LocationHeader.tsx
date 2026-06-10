@@ -10,6 +10,9 @@ interface LocationHeaderProps {
   address?: string | null;
   onPressLocation?: () => void;
   onPressNotifications?: () => void;
+  // Opens the cart. The basket shows a badge with the current item count.
+  onPressCart?: () => void;
+  cartCount?: number;
   // When provided (guest users), shows a person icon that opens the login page.
   onPressLogin?: () => void;
 }
@@ -18,6 +21,8 @@ export function LocationHeader({
   address,
   onPressLocation,
   onPressNotifications,
+  onPressCart,
+  cartCount = 0,
   onPressLogin,
 }: LocationHeaderProps) {
   // No saved location -> prompt the user to set one (no static default city).
@@ -59,33 +64,55 @@ export function LocationHeader({
         </View>
       </Pressable>
       <View style={{ flex: 1 }} />
-      {isGuest ? (
-        // Guest: hide notifications, show a sign-in icon that opens login.
-        <Pressable
-          style={styles.notificationContainer}
-          onPress={onPressLogin}
-          hitSlop={8}
-        >
-          <MaterialIcons
-            name="person-outline"
-            color={AppColors.textColorTheme}
-            size={sp(24)}
-          />
-        </Pressable>
-      ) : (
-        <Pressable
-          style={styles.notificationContainer}
-          onPress={onPressNotifications}
-          disabled={!onPressNotifications}
-          hitSlop={8}
-        >
-          <MaterialIcons
-            name="notifications"
-            color={AppColors.textColorTheme}
-            size={sp(24)}
-          />
-        </Pressable>
-      )}
+      <View style={styles.actions}>
+        {/* Cart / basket — opens the cart; badge shows the current item count. */}
+        {onPressCart && (
+          <Pressable style={styles.iconButton} onPress={onPressCart} hitSlop={8}>
+            <MaterialIcons
+              name="shopping-cart"
+              color={AppColors.textColorTheme}
+              size={sp(24)}
+            />
+            {cartCount > 0 && (
+              <View style={styles.badge}>
+                <BaseText
+                  title={cartCount > 99 ? '99+' : String(cartCount)}
+                  color={AppColors.white}
+                  fontWeight="bold"
+                  size={sp(10)}
+                />
+              </View>
+            )}
+          </Pressable>
+        )}
+        {isGuest ? (
+          // Guest: hide notifications, show a sign-in icon that opens login.
+          <Pressable
+            style={styles.iconButton}
+            onPress={onPressLogin}
+            hitSlop={8}
+          >
+            <MaterialIcons
+              name="person-outline"
+              color={AppColors.textColorTheme}
+              size={sp(24)}
+            />
+          </Pressable>
+        ) : (
+          <Pressable
+            style={styles.iconButton}
+            onPress={onPressNotifications}
+            disabled={!onPressNotifications}
+            hitSlop={8}
+          >
+            <MaterialIcons
+              name="notifications"
+              color={AppColors.textColorTheme}
+              size={sp(24)}
+            />
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }
@@ -105,9 +132,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  notificationContainer: {
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: w(8),
+  },
+  iconButton: {
     padding: w(8),
     backgroundColor: AppColors.lightGreyV2,
     borderRadius: 9999,
+  },
+  // Item-count bubble on the cart icon.
+  badge: {
+    position: 'absolute',
+    top: -h(2),
+    right: -w(2),
+    minWidth: w(18),
+    height: w(18),
+    paddingHorizontal: w(4),
+    borderRadius: 9999,
+    backgroundColor: AppColors.primaryColor,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: AppColors.white,
   },
 });

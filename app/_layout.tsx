@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { View } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -18,6 +19,7 @@ import {
 } from '@expo-google-fonts/tajawal';
 import { AppProviders } from '@/providers/AppProviders';
 import { AppColors } from '@/theme';
+import CartBottomBar from '@/components/cart/CartBottomBar';
 // Side-effect: register the FCM background message handler at startup
 // (guarded no-op in Expo Go / web).
 import '@/lib/push/background';
@@ -51,17 +53,22 @@ export default function RootLayout() {
   return (
     <AppProviders>
       <StatusBar style="light" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: AppColors.backgroundColor },
-          animation: 'slide_from_right',
-        }}
-      >
-        <Stack.Screen name="index" />
-        <Stack.Screen name="onboarding" />
-        <Stack.Screen name="(tabs)" />
-      </Stack>
+      <View style={{ flex: 1 }}>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: AppColors.backgroundColor },
+            animation: 'slide_from_right',
+          }}
+        >
+          <Stack.Screen name="index" />
+          <Stack.Screen name="onboarding" />
+          <Stack.Screen name="(tabs)" />
+        </Stack>
+        {/* Global mini-cart bar — visible on every screen (self-hides when the
+            cart is empty / on screens that show the cart themselves). */}
+        <CartBottomBar />
+      </View>
     </AppProviders>
   );
 }
