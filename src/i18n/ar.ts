@@ -315,6 +315,8 @@ export const ar: Record<string, string> = {
   "filter": "تصفية",
   "special_features": "مميزات خاصة",
   "open_now": "مفتوح الآن",
+  "closed": "مغلق",
+  "delivery_time": "وقت التوصيل",
   "offers_discounts": "عروض وخصومات",
   "highly_rated": "الأعلى تقييماً",
   "new_places": "أماكن جديدة",

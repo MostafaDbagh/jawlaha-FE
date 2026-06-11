@@ -9,8 +9,8 @@ import { BaseText } from '@/components';
 
 export interface PromotionCardProps {
   title: string;
-  description: string;
-  code: string;
+  description?: string;
+  code?: string;
   backgroundColor: string;
 }
 
@@ -29,19 +29,27 @@ export function PromotionCard({
             <View style={{ width: w(8) }} />
             <BaseText title={title} style={styles.titleText} />
           </View>
-          <View style={{ height: h(4) }} />
-          <BaseText
-            title={description}
-            numberOfLines={2}
-            style={styles.descriptionText}
-          />
-          <View style={{ height: h(8) }} />
-          <View style={styles.codeContainer}>
-            <BaseText
-              title={`${t('use_code')} ${code}`}
-              style={styles.codeText}
-            />
-          </View>
+          {!!description && (
+            <>
+              <View style={{ height: h(4) }} />
+              <BaseText
+                title={description}
+                numberOfLines={2}
+                style={styles.descriptionText}
+              />
+            </>
+          )}
+          {!!code && (
+            <>
+              <View style={{ height: h(8) }} />
+              <View style={styles.codeContainer}>
+                <BaseText
+                  title={`${t('use_code')} ${code}`}
+                  style={styles.codeText}
+                />
+              </View>
+            </>
+          )}
         </View>
       </View>
     </View>

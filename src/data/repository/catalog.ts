@@ -12,6 +12,7 @@ import { parseSubcategoryModel } from '@/types/subcategory';
 import { parseProductModel } from '@/types/product';
 import { parseReviewModel } from '@/types/review';
 import { parseOfferModel } from '@/types/offer';
+import { parseVendorPromotionModel } from '@/types/vendorPromotion';
 
 //-------------------------------------------------------
 //-------------------[Categories Repository]-------------
@@ -130,6 +131,18 @@ export async function getVendorBranches(vendorId: number): Promise<CustomRespons
     subUrl: `branches/vendor/${vendorId}`,
     isListOfModel: true,
     fromJson: parseBranchModel,
+    needToken: false,
+  });
+}
+
+// Promo banners a restaurant authors for its own page (active only).
+export async function getVendorPromotions(
+  vendorId: number | string,
+): Promise<CustomResponse> {
+  return await apiClient.getV2({
+    subUrl: `vendor-promotions/vendor/${vendorId}`,
+    isListOfModel: true,
+    fromJson: parseVendorPromotionModel,
     needToken: false,
   });
 }
@@ -302,6 +315,7 @@ export const catalogRepo = {
   getPopularBranches,
   getBranch,
   getVendorBranches,
+  getVendorPromotions,
   searchSubcategories,
   getBranchSubcategories,
   getSubcategory,

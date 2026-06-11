@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { AppColors, w, h, r, sp } from '@/theme';
 import { quicksand } from '@/theme/typography';
@@ -27,11 +27,14 @@ import { navArgs, useNavArgs } from '@/store/navArgs';
 import { useBranchesStore } from '@/features/branches/branchesStore';
 import { useProductStore } from '@/features/categories/productStore';
 import { useCartStore } from '@/features/cart/cartStore';
+import { repository } from '@/data/repository';
 import { formatPrice } from '@/lib/currency';
+import { cuisineLabels } from '@/lib/cuisines';
 import { showSnack } from '@/lib/snack';
 import { BranchModel } from '@/types/branch';
 import { VendorModel } from '@/types/vendor';
 import { ProductModel } from '@/types/product';
+import { VendorPromotionModel } from '@/types/vendorPromotion';
 
 export default function VendorDetailsScreen() {
   const router = useRouter();
@@ -41,8 +44,14 @@ export default function VendorDetailsScreen() {
   const argBranch = args.branch as BranchModel | undefined;
   const argVendor = args.vendor as VendorModel | undefined;
   // The cart's "Add More Items" passes only the order restaurant's branch id;
-  // resolve the full branch from it (see the getBranch effect below).
-  const argBranchId = args.branchId as string | number | undefined;
+  // resolve the full branch from it (see the getBranch effect below). A
+  // `branchId` URL param (deep link, e.g. jawlahsyreact://vendor-details?branchId=X)
+  // is the same flow, so shared restaurant links open the right page.
+  const params = useLocalSearchParams<{ branchId?: string }>();
+  const argBranchId = (args.branchId ?? params.branchId) as
+    | string
+    | number
+    | undefined;
 
   const vendorBranches = useBranchesStore((s) => s.vendorBranches);
   const currentBranch = useBranchesStore((s) => s.currentBranch);
@@ -55,6 +64,8 @@ export default function VendorDetailsScreen() {
   const cartHasItems = cartSummary.items_count > 0;
 
   const [favorite, setFavorite] = useState(false);
+  // Restaurant-authored promo banners (replaces the old hardcoded cards).
+  const [promotions, setPromotions] = useState<VendorPromotionModel[]>([]);
 
   const onShare = async () => {
     try {
@@ -97,6 +108,24 @@ export default function VendorDetailsScreen() {
     }
   }, [branch?.id]);
 
+  // Load the restaurant's own promo banners once its vendor is known.
+  const vendorId = branch?.vendorId ?? argVendor?.id;
+  useEffect(() => {
+    if (vendorId == null) {
+      setPromotions([]);
+      return;
+    }
+    let active = true;
+    repository.getVendorPromotions(vendorId as any).then((res) => {
+      if (active && res.success && Array.isArray(res.object)) {
+        setPromotions(res.object as VendorPromotionModel[]);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [vendorId]);
+
   // Keep the bottom "view cart" count in sync.
   useEffect(() => {
     useCartStore.getState().loadCart();
@@ -127,11 +156,32 @@ export default function VendorDetailsScreen() {
     router.push('/product-details');
   };
 
-  const buildBadge = (text: string) => (
-    <View style={styles.badge}>
+  // One cell of the stats card: an icon + value on top, a muted label below.
+  const buildStat = (
+    icon: keyof typeof MaterialIcons.glyphMap,
+    value: string,
+    label: string,
+    iconColor: string,
+  ) => (
+    <View style={styles.statCell}>
+      <View style={styles.infoRow}>
+        <MaterialIcons name={icon} size={sp(15)} color={iconColor} />
+        <View style={{ width: w(4) }} />
+        <BaseText
+          title={value}
+          numberOfLines={1}
+          style={{
+            fontSize: sp(13),
+            fontFamily: quicksand('bold'),
+            color: AppColors.textColorTheme,
+          }}
+        />
+      </View>
+      <View style={{ height: h(2) }} />
       <BaseText
-        title={text}
-        style={{ fontSize: sp(12), fontFamily: quicksand('500') }}
+        title={label}
+        numberOfLines={1}
+        style={{ fontSize: sp(11), color: AppColors.textColor2 }}
       />
     </View>
   );
@@ -148,10 +198,16 @@ export default function VendorDetailsScreen() {
   }
 
   const headerTitle = branch.name ?? argVendor?.name ?? '';
-  const ratingText = `${branch.rating ?? 0} (${branch.reviewsCount ?? 0}+ ${t(
-    'reviews',
-  )})`;
+  const isOpen = branch.isOpen ?? false;
+  const ratingValue = `${branch.rating ?? 0}`;
+  const reviewsLabel = `${branch.reviewsCount ?? 0}+ ${t('reviews')}`;
   const deliveryTimeText = branch.deliveryTime ?? '';
+  const deliveryFeeText = branch.freeDelivery
+    ? t('free_delivery')
+    : branch.deliveryFee != null
+      ? formatPrice(branch.deliveryFee)
+      : '—';
+  const cuisineSubtitle = cuisineLabels(branch.cuisines);
   const aboutText = argVendor?.description ?? branch.vendorName ?? '';
   const popularProducts = products.slice(0, 3);
 
@@ -234,7 +290,7 @@ export default function VendorDetailsScreen() {
             {/* Space for overlapping logo */}
             <View style={{ height: h(16) }} />
 
-            {/* Header Info */}
+            {/* Header Info — logo, name, cuisine line, live open status */}
             <View style={styles.headerInfoRow}>
               <View style={styles.logoCircle}>
                 <AppImage
@@ -256,30 +312,36 @@ export default function VendorDetailsScreen() {
                     color: AppColors.textColorTheme,
                   }}
                 />
-                <View style={{ height: h(4) }} />
+                {!!cuisineSubtitle && (
+                  <>
+                    <View style={{ height: h(2) }} />
+                    <BaseText
+                      title={cuisineSubtitle}
+                      numberOfLines={1}
+                      style={{ fontSize: sp(12), color: AppColors.textColor2 }}
+                    />
+                  </>
+                )}
+                <View style={{ height: h(6) }} />
+                {/* Open / Closed with a coloured status dot (green = open). */}
                 <View style={styles.infoRow}>
-                  <MaterialIcons
-                    name="access-time"
-                    size={sp(14)}
-                    color={AppColors.textColor2}
+                  <View
+                    style={[
+                      styles.statusDot,
+                      {
+                        backgroundColor: isOpen
+                          ? AppColors.green
+                          : AppColors.textColor2,
+                      },
+                    ]}
                   />
-                  <View style={{ width: w(4) }} />
+                  <View style={{ width: w(6) }} />
                   <BaseText
-                    title={deliveryTimeText}
-                    style={{ fontSize: sp(12), color: AppColors.textColor2 }}
-                  />
-                  <View style={{ flex: 1 }} />
-                  <MaterialIcons
-                    name="star"
-                    size={sp(16)}
-                    color={AppColors.lightOrange}
-                  />
-                  <BaseText
-                    title={` ${ratingText}`}
+                    title={isOpen ? t('open_now') : t('closed')}
                     style={{
-                      fontSize: sp(12),
-                      color: AppColors.textColorTheme,
-                      fontFamily: quicksand('600'),
+                      fontSize: sp(13),
+                      fontFamily: quicksand('bold'),
+                      color: isOpen ? AppColors.green : AppColors.textColor2,
                     }}
                   />
                 </View>
@@ -287,18 +349,54 @@ export default function VendorDetailsScreen() {
             </View>
             <View style={{ height: h(16) }} />
 
-            {/* Badges */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-            >
-              <View style={{ flexDirection: 'row' }}>
-                {branch.freeDelivery && buildBadge(t('free_delivery'))}
-                {branch.freeDelivery && <View style={{ width: w(8) }} />}
-                {branch.isOpen && buildBadge(t('open_now'))}
-              </View>
-            </ScrollView>
+            {/* Stats card — delivery time · rating · delivery fee */}
+            <View style={styles.statsCard}>
+              {buildStat(
+                'access-time',
+                deliveryTimeText || '—',
+                t('delivery_time'),
+                AppColors.primaryColor,
+              )}
+              <View style={styles.statDivider} />
+              {buildStat('star', ratingValue, reviewsLabel, AppColors.lightOrange)}
+              <View style={styles.statDivider} />
+              {buildStat(
+                'delivery-dining',
+                deliveryFeeText,
+                t('delivery_fee'),
+                AppColors.primaryColor,
+              )}
+            </View>
             <View style={{ height: h(20) }} />
+
+            {/* Promotions — the restaurant's own banners (hidden when none) */}
+            {promotions.length > 0 && (
+              <>
+                <BaseText
+                  title={t('promotions')}
+                  style={{
+                    fontSize: sp(16),
+                    fontFamily: quicksand('bold'),
+                    color: AppColors.textColorTheme,
+                  }}
+                />
+                <View style={{ height: h(12) }} />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={{ flexDirection: 'row' }}>
+                    {promotions.map((promo, index) => (
+                      <PromotionCard
+                        key={String(promo.id ?? index)}
+                        title={promo.title ?? ''}
+                        description={promo.description ?? ''}
+                        code={promo.code ?? ''}
+                        backgroundColor={AppColors.darkTeal}
+                      />
+                    ))}
+                  </View>
+                </ScrollView>
+                <View style={{ height: h(24) }} />
+              </>
+            )}
 
             {/* About Section */}
             <BaseText
@@ -343,34 +441,6 @@ export default function VendorDetailsScreen() {
                 color={AppColors.textColor2}
               />
             </View>
-            <View style={{ height: h(24) }} />
-
-            {/* Promotions */}
-            <BaseText
-              title={t('promotions')}
-              style={{
-                fontSize: sp(16),
-                fontFamily: quicksand('bold'),
-                color: AppColors.textColorTheme,
-              }}
-            />
-            <View style={{ height: h(12) }} />
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={{ flexDirection: 'row' }}>
-                <PromotionCard
-                  title={`20% ${t('off').toUpperCase()}`}
-                  description="On your first order with Jawlah"
-                  code="WELCOME20"
-                  backgroundColor={AppColors.darkTeal}
-                />
-                <PromotionCard
-                  title={`${t('free_delivery').toUpperCase()}`}
-                  description={`On orders above ${formatPrice(50000)}`}
-                  code="FREEDEL"
-                  backgroundColor={AppColors.darkTeal}
-                />
-              </View>
-            </ScrollView>
             <View style={{ height: h(24) }} />
 
             {/* Tabs (TabBar) */}
@@ -593,11 +663,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  badge: {
-    paddingHorizontal: w(12),
-    paddingVertical: h(6),
-    backgroundColor: 'rgba(239,242,245,0.5)', // lightGreyV2 @ 0.5
-    borderRadius: r(20),
+  statusDot: {
+    width: w(8),
+    height: w(8),
+    borderRadius: w(4),
+  },
+  statsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: AppColors.lightGreyV2,
+    borderRadius: r(16),
+    paddingVertical: h(12),
+    backgroundColor: AppColors.white,
+  },
+  statCell: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: w(6),
+  },
+  statDivider: {
+    width: 1,
+    height: h(26),
+    backgroundColor: AppColors.lightGreyV2,
   },
   locationCard: {
     padding: w(12),

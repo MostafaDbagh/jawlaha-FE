@@ -332,6 +332,8 @@ export const en: Record<string, string> = {
   "filter": "Filter",
   "special_features": "Special Features",
   "open_now": "Open Now",
+  "closed": "Closed",
+  "delivery_time": "Delivery time",
   "offers_discounts": "Offers & Discounts",
   "highly_rated": "Highly Rated",
   "new_places": "New Places",
