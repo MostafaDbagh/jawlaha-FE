@@ -200,8 +200,6 @@ export default function VendorDetailsScreen() {
 
   const headerTitle = branch.name ?? argVendor?.name ?? '';
   const isOpen = branch.isOpen ?? false;
-  const ratingValue = `${branch.rating ?? 0}`;
-  const reviewsLabel = `${branch.reviewsCount ?? 0}+ ${t('reviews')}`;
   const deliveryTimeText = branch.deliveryTime ?? '';
   const deliveryFeeText = branch.freeDelivery
     ? t('free_delivery')
@@ -388,7 +386,7 @@ export default function VendorDetailsScreen() {
             </View>
             <View style={{ height: h(16) }} />
 
-            {/* Stats card — delivery time · rating · delivery fee */}
+            {/* Stats card — delivery time · delivery fee */}
             <View style={styles.statsCard}>
               {buildStat(
                 'access-time',
@@ -396,8 +394,6 @@ export default function VendorDetailsScreen() {
                 t('delivery_time'),
                 AppColors.primaryColor,
               )}
-              <View style={styles.statDivider} />
-              {buildStat('star', ratingValue, reviewsLabel, AppColors.lightOrange)}
               <View style={styles.statDivider} />
               {buildStat(
                 'delivery-dining',
