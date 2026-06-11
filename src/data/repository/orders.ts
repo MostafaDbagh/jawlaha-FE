@@ -14,6 +14,7 @@ export async function addCartItem(args: {
   qty?: number;
   variation_id?: string | null;
   options?: any;
+  note?: string | null;
 }): Promise<CustomResponse> {
   return await apiClient.postV2({
     subUrl: 'cart/items',

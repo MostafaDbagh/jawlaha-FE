@@ -38,15 +38,17 @@ interface VendorGroup {
 }
 
 // Sub-label under the item name (e.g. "Extra ripe") built from the chosen
-// options/variation, when present. Empty string hides the row.
+// options/variation plus the special-request note, when present. Empty string
+// hides the row.
 function optionLabel(item: CartItem): string {
-  if (Array.isArray(item.options)) {
-    return item.options
-      .map((o: any) => o?.name ?? o?.label ?? o?.value)
-      .filter(Boolean)
-      .join(', ');
-  }
-  return '';
+  const opts = Array.isArray(item.options)
+    ? item.options
+        .map((o: any) => o?.name ?? o?.label ?? o?.value)
+        .filter(Boolean)
+        .join(', ')
+    : '';
+  const note = typeof item.note === 'string' && item.note.trim() ? `"${item.note.trim()}"` : '';
+  return [opts, note].filter(Boolean).join(' • ');
 }
 
 export default function CartScreen() {

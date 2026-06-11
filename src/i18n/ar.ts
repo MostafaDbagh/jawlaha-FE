@@ -330,6 +330,8 @@ export const ar: Record<string, string> = {
   "delivery_date_label": "تاريخ التوصيل",
   "delivery_instructions_label": "تعليمات التوصيل",
   "optional_label": "(اختياري)",
+  "special_request_label": "طلب خاص",
+  "special_request_placeholder": "مثال: خبز مقرمش، ثومية زيادة، بدون دبس رمان…",
   "driver_tip_label": "إكرامية السائق",
   "proceed_payment": "الذهاب للدفع",
   "today": "اليوم",

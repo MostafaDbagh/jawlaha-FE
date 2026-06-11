@@ -179,12 +179,15 @@ function StoreItemBlock({
                   const addOns = Array.isArray(item.options)
                     ? item.options.map((o: any) => o?.name).filter(Boolean).join('، ')
                     : '';
-                  return addOns ? (
+                  const note =
+                    typeof item.note === 'string' && item.note.trim() ? `"${item.note.trim()}"` : '';
+                  const sub = [addOns, note].filter(Boolean).join(' • ');
+                  return sub ? (
                     <BaseText
-                      title={addOns}
+                      title={sub}
                       size={sp(12)}
                       color={AppColors.textColor2}
-                      numberOfLines={2}
+                      numberOfLines={3}
                       style={{ marginTop: h(2) }}
                     />
                   ) : null;

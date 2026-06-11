@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -122,6 +123,9 @@ export default function ProductDetailsScreen() {
   >(null);
   const [qty, setQty] = useState(1);
   const [favorite, setFavorite] = useState(false);
+  // Free-text special request sent with the cart line ("extra garlic sauce,
+  // no pomegranate sauce"). Free of charge — paid extras live in optionGroups.
+  const [note, setNote] = useState('');
 
   const buildIndicator = (isActive: boolean, key: number) => (
     <View
@@ -350,6 +354,7 @@ export default function ProductDetailsScreen() {
       qty,
       variation_id: (selectedVariationId ?? null) as any,
       options,
+      note: note.trim() || null,
     });
     if (res.ok) {
       // If the backend reset a different restaurant's cart, say so.
@@ -457,6 +462,32 @@ export default function ProductDetailsScreen() {
 
             {/* Add-on groups (appetizers, drinks, extras…) */}
             {optionGroups.map((group) => buildOptionGroup(group))}
+
+            {/* Special request — free-text note passed to the kitchen */}
+            <View style={styles.divider} />
+            <View style={{ height: h(20) }} />
+            <View style={styles.groupHeader}>
+              <BaseTextRaw
+                text={t('special_request_label')}
+                style={{ fontSize: sp(17), fontWeight: '700', color: AppColors.textColorTheme }}
+              />
+              <View style={styles.groupHintPill}>
+                <Text style={[styles.groupHintText, { color: AppColors.textColor2 }]}>
+                  {t('optional_label')}
+                </Text>
+              </View>
+            </View>
+            <View style={{ height: h(12) }} />
+            <TextInput
+              value={note}
+              onChangeText={setNote}
+              placeholder={t('special_request_placeholder')}
+              placeholderTextColor={AppColors.textColor2}
+              multiline
+              maxLength={300}
+              style={styles.noteInput}
+            />
+            <View style={{ height: h(20) }} />
 
             {/* Quantity stepper + Add to Cart button (inline row) */}
             <View style={styles.actionRow}>
@@ -802,6 +833,19 @@ const styles = StyleSheet.create({
   groupHintText: {
     fontSize: sp(11),
     fontFamily: quicksand('600'),
+  },
+  noteInput: {
+    minHeight: h(84),
+    borderWidth: 1,
+    borderColor: AppColors.lightGreyV2,
+    borderRadius: r(8),
+    paddingHorizontal: w(14),
+    paddingVertical: h(12),
+    fontSize: sp(14),
+    fontFamily: quicksand('500'),
+    color: AppColors.textColorTheme,
+    textAlignVertical: 'top',
+    backgroundColor: AppColors.white,
   },
   actionRow: {
     flexDirection: 'row',

@@ -10,6 +10,8 @@ export interface OrderItem {
   unit_price: number;
   qty: number;
   options?: any;
+  // Customer's free-text special request for this line.
+  note?: string | null;
 }
 
 export interface TimelineStep {

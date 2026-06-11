@@ -14,6 +14,8 @@ export interface CartItem {
   unit_price: number;
   qty: number;
   options?: any;
+  // Free-text special request for this line ("extra garlic, no pomegranate").
+  note?: string | null;
 }
 
 export interface CartSummary {
@@ -33,7 +35,7 @@ interface CartState {
   summary: CartSummary;
   isLoading: boolean;
   loadCart: () => Promise<void>;
-  addItem: (args: { product_id: string; qty?: number; variation_id?: string | null; options?: any }) => Promise<AddItemResult>;
+  addItem: (args: { product_id: string; qty?: number; variation_id?: string | null; options?: any; note?: string | null }) => Promise<AddItemResult>;
   // `lineKey` is a cart line's id (preferred) or its product_id (fallback).
   updateItem: (lineKey: string, qty: number) => Promise<void>;
   removeItem: (lineKey: string) => Promise<void>;

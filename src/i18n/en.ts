@@ -350,6 +350,8 @@ export const en: Record<string, string> = {
   "delivery_date_label": "Delivery Date",
   "delivery_instructions_label": "Delivery Instructions",
   "optional_label": "(Optional)",
+  "special_request_label": "Special Request",
+  "special_request_placeholder": "e.g. crispy bread, extra garlic sauce, no pomegranate sauce…",
   "driver_tip_label": "Driver tip",
   "proceed_payment": "Proceed to Payment",
   "today": "Today",
