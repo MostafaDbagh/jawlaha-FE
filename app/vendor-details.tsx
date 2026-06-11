@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   ScrollView,
+  FlatList,
   Pressable,
   ActivityIndicator,
   Share,
@@ -217,10 +218,48 @@ export default function VendorDetailsScreen() {
       {/* Stack */}
       <View style={{ flex: 1 }}>
         {/* CustomScrollView */}
-        <ScrollView
+        {/* The full menu is virtualized: rows mount on demand instead of all at
+            once. Everything above the menu lives in ListHeaderComponent. */}
+        <FlatList
+          data={products}
+          keyExtractor={(item, index) => String(item.id ?? index)}
+          renderItem={({ item }) => (
+            <View style={{ paddingHorizontal: w(16) }}>
+              <MenuListItemCard
+                name={item.name ?? ''}
+                description={item.description ?? ''}
+                price={formatPrice(item.finalPrice ?? item.price)}
+                imageUrl={item.imageUrl ?? ''}
+                onAdd={() => openProduct(item)}
+                onPress={() => openProduct(item)}
+              />
+            </View>
+          )}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 0 }}
-        >
+          initialNumToRender={8}
+          windowSize={11}
+          removeClippedSubviews
+          ListEmptyComponent={
+            isLoading ? (
+              <ActivityIndicator
+                style={{ marginTop: h(20) }}
+                color={AppColors.primaryColor}
+              />
+            ) : (
+              <BaseText
+                title={t('no_orders')}
+                style={{
+                  textAlign: 'center',
+                  marginTop: h(20),
+                  color: AppColors.textColor2,
+                }}
+              />
+            )
+          }
+          ListFooterComponent={<View style={{ height: h(80) }} />}
+          ListHeaderComponent={
+            <>
           {/* SliverAppBar - Header Image with Back Button */}
           <View style={styles.sliverAppBar}>
             {/* flexibleSpace background */}
@@ -519,41 +558,9 @@ export default function VendorDetailsScreen() {
             />
             <View style={{ height: h(16) }} />
           </View>
-
-          {/* SliverPadding + SliverList - Vertical List */}
-          <View style={{ paddingHorizontal: w(16) }}>
-            {isLoading && products.length === 0 ? (
-              <ActivityIndicator
-                style={{ marginTop: h(20) }}
-                color={AppColors.primaryColor}
-              />
-            ) : products.length === 0 ? (
-              <BaseText
-                title={t('no_orders')}
-                style={{
-                  textAlign: 'center',
-                  marginTop: h(20),
-                  color: AppColors.textColor2,
-                }}
-              />
-            ) : (
-              products.map((product, index) => (
-                <MenuListItemCard
-                  key={String(product.id ?? index)}
-                  name={product.name ?? ''}
-                  description={product.description ?? ''}
-                  price={formatPrice(product.finalPrice ?? product.price)}
-                  imageUrl={product.imageUrl ?? ''}
-                  onAdd={() => openProduct(product)}
-                  onPress={() => openProduct(product)}
-                />
-              ))
-            )}
-          </View>
-
-          {/* SliverToBoxAdapter - Space for bottom cart */}
-          <View style={{ height: h(80) }} />
-        </ScrollView>
+            </>
+          }
+        />
 
         {/* Bottom Cart Button — only shown once the cart has items. An empty
             cart has nothing to view, so the bar is hidden entirely. */}

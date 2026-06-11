@@ -14,7 +14,7 @@ export interface MenuListItemCardProps {
   onPress?: () => void;
 }
 
-export function MenuListItemCard({
+function MenuListItemCardBase({
   name,
   description,
   price,
@@ -73,6 +73,9 @@ export function MenuListItemCard({
     </Pressable>
   );
 }
+
+// Memoized so virtualized list rows skip re-render when their props are unchanged.
+export const MenuListItemCard = React.memo(MenuListItemCardBase);
 
 const styles = StyleSheet.create({
   container: {

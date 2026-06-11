@@ -25,7 +25,7 @@ export interface RestaurantRowCardProps {
   onPress?: () => void;
 }
 
-export function RestaurantRowCard({
+function RestaurantRowCardBase({
   name,
   image,
   cuisine,
@@ -104,6 +104,8 @@ export function RestaurantRowCard({
     </Pressable>
   );
 }
+
+export const RestaurantRowCard = React.memo(RestaurantRowCardBase);
 
 const styles = StyleSheet.create({
   card: {

@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
-  ScrollView,
   RefreshControl,
   FlatList,
   Pressable,
@@ -191,7 +190,23 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView
+      {/* The restaurants list is virtualized; all the sections above it live in
+          ListHeaderComponent so the home feed scrolls as one list. */}
+      <FlatList
+        data={filteredBranches}
+        keyExtractor={(item, i) => `rest-${item.id ?? i}`}
+        renderItem={({ item: branch }) => (
+          <RestaurantRowCard
+            name={branch.name ?? ''}
+            image={branch.image}
+            cuisine={cuisineLabels(branch.cuisines) || (branch.city ?? '')}
+            deliveryTime={branch.deliveryTime}
+            distanceKm={branch.distanceKm}
+            freeDelivery={branch.freeDelivery}
+            badges={badgesFor(branch)}
+            onPress={() => openBranch(branch)}
+          />
+        )}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -199,7 +214,11 @@ export default function HomeScreen() {
           paddingHorizontal: responsivePadding.paddingHorizontal,
           paddingBottom: h(24),
         }}
-      >
+        initialNumToRender={6}
+        windowSize={11}
+        removeClippedSubviews
+        ListHeaderComponent={
+          <>
         <View style={{ height: h(10) }} />
         <LocationHeader
           address={city ? cityLabel(city, lang) : addressTitle}
@@ -343,28 +362,19 @@ export default function HomeScreen() {
           </Pressable>
         )}
 
-        {/* 4. Restaurants — every restaurant on the platform (not city-scoped). */}
+        {/* 4. Restaurants — every restaurant on the platform (not city-scoped).
+            The rows themselves are the FlatList data; this just renders the
+            section header above them. */}
         {(isNearbyBranchesLoading || filteredBranches.length > 0) && (
           <>
             <View style={{ height: h(20) }} />
             <SectionHeader title={t('restaurants')} onViewAllTap={() => router.push('/all-vendors')} />
             <View style={{ height: h(12) }} />
-            {filteredBranches.map((branch, i) => (
-              <RestaurantRowCard
-                key={`rest-${branch.id ?? i}`}
-                name={branch.name ?? ''}
-                image={branch.image}
-                cuisine={cuisineLabels(branch.cuisines) || (branch.city ?? '')}
-                deliveryTime={branch.deliveryTime}
-                distanceKm={branch.distanceKm}
-                freeDelivery={branch.freeDelivery}
-                badges={badgesFor(branch)}
-                onPress={() => openBranch(branch)}
-              />
-            ))}
           </>
         )}
-      </ScrollView>
+          </>
+        }
+      />
     </SafeAreaView>
   );
 }

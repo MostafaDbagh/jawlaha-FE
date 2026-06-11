@@ -14,7 +14,7 @@ interface PopularItemCardProps {
   onAdd?: () => void;
 }
 
-export function PopularItemCard({
+function PopularItemCardBase({
   name,
   description,
   price,
@@ -53,6 +53,8 @@ export function PopularItemCard({
     </View>
   );
 }
+
+export const PopularItemCard = React.memo(PopularItemCardBase);
 
 const styles = StyleSheet.create({
   container: {
