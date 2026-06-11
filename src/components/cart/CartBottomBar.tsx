@@ -33,6 +33,8 @@ const HIDE_ON = new Set([
   '/select-city',
   '/choose-location',
   '/pick-location',
+  '/add-address',
+  '/saved-addresses',
 ]);
 
 // Routes that render the bottom tab bar — the global bar floats just above it.

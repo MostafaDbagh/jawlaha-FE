@@ -132,6 +132,10 @@ export default function TrackingOrderScreen() {
   const eta = order?.eta_minutes;
   const driver = order?.driver ?? null;
   const items = order?.items ?? [];
+  // No driver is dispatched until the restaurant marks the order "ready", so
+  // before then show a calm "assigned when ready" note instead of an endless
+  // "finding a driver…" spinner (which reads as something being stuck/wrong).
+  const beforeReady = ORDER_FLOW.indexOf(order?.status ?? 'pending') < ORDER_FLOW.indexOf('ready');
 
   // Dial the assigned driver. Cash-on-delivery means the customer often needs to
   // reach the driver directly, so this is wired to both the number and the
@@ -344,6 +348,19 @@ export default function TrackingOrderScreen() {
                     </Pressable>
                   )}
                 </View>
+              ) : beforeReady ? (
+                <View style={styles.driverPlaceholder}>
+                  <Ionicons
+                    name="information-circle-outline"
+                    size={sp(20)}
+                    color={AppColors.primaryColor}
+                  />
+                  <View style={{ width: w(12) }} />
+                  <BaseText
+                    title={t('driver_assigned_when_ready')}
+                    style={{ fontSize: sp(13), color: AppColors.textColor2, flex: 1 }}
+                  />
+                </View>
               ) : (
                 <View style={styles.driverPlaceholder}>
                   <ActivityIndicator color={AppColors.primaryColor} size="small" />
@@ -414,7 +431,26 @@ export default function TrackingOrderScreen() {
                   />
                 </View>
               ))}
-              <View style={{ height: h(30) }} />
+
+              <View style={{ height: h(8) }} />
+              {/* Back to Home — lets the customer leave tracking and return to
+                  the home tab (resets the post-checkout stack). */}
+              <Pressable
+                onPress={() => router.replace('/(tabs)')}
+                style={styles.homeButton}
+              >
+                <Ionicons name="home-outline" size={sp(18)} color={AppColors.white} />
+                <View style={{ width: w(8) }} />
+                <BaseText
+                  title={t('back_to_home')}
+                  style={{
+                    color: AppColors.white,
+                    fontFamily: quicksand('bold'),
+                    fontSize: sp(16),
+                  }}
+                />
+              </Pressable>
+              <View style={{ height: h(24) }} />
             </ScrollView>
           )}
         </View>
@@ -461,6 +497,14 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  homeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: AppColors.primaryColor,
+    borderRadius: r(14),
+    height: h(52),
   },
   appBar: {
     flexDirection: 'row',

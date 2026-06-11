@@ -315,6 +315,7 @@ export const en: Record<string, string> = {
   "item_in_cart": "@count item in cart",
   "your_driver": "Your driver",
   "finding_driver": "Finding a driver for your order…",
+  "driver_assigned_when_ready": "A driver will be assigned once the restaurant has your order ready.",
   "driver_phone": "Driver's number",
   "halal": "Halal",
   "cakes": "Cakes",

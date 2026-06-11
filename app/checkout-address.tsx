@@ -25,7 +25,6 @@ const ADDR_ICONS: Record<AddressIcon, keyof typeof Ionicons.glyphMap> = {
   other: 'location-outline',
 };
 
-const SCHEDULE_TIMES = ['10:00am', '10:30am', '11:00am', '11:30am', '12:00pm'];
 
 export default function CheckoutAddressScreen() {
   const router = useRouter();
@@ -34,9 +33,6 @@ export default function CheckoutAddressScreen() {
   const selectedId = useAddressStore((s) => s.selectedId);
   const subtotal = useCartStore((s) => s.summary.subtotal);
 
-  const [deliverNow, setDeliverNow] = useState(true);
-  const [scheduleTime, setScheduleTime] = useState(SCHEDULE_TIMES[0]);
-  const [timeOpen, setTimeOpen] = useState(false);
   const [instructions, setInstructions] = useState('');
 
   useEffect(() => {
@@ -144,50 +140,6 @@ export default function CheckoutAddressScreen() {
 
         <View style={{ height: h(20) }} />
 
-        {/* Delivery Time */}
-        <BaseText title={t('delivery_time_label')} size={sp(16)} fontWeight="bold" color={AppColors.textColorTheme} />
-        <View style={{ height: h(12) }} />
-        <View style={styles.toggleRow}>
-          <Pressable
-            onPress={() => setDeliverNow(true)}
-            style={[styles.toggleBtn, deliverNow ? styles.toggleOn : styles.toggleOff]}
-          >
-            <BaseText
-              title={t('deliver_now')}
-              size={sp(14)}
-              fontWeight="bold"
-              color={deliverNow ? AppColors.white : AppColors.textColorTheme}
-            />
-          </Pressable>
-          <View style={{ width: w(12) }} />
-          <Pressable
-            onPress={() => setDeliverNow(false)}
-            style={[styles.toggleBtn, !deliverNow ? styles.toggleOn : styles.toggleOff]}
-          >
-            <BaseText
-              title={t('schedule_delivery')}
-              size={sp(14)}
-              fontWeight="bold"
-              color={!deliverNow ? AppColors.white : AppColors.textColorTheme}
-            />
-          </Pressable>
-        </View>
-
-        {!deliverNow && (
-          <>
-            <View style={{ height: h(12) }} />
-            <Pressable style={styles.timeSelect} onPress={() => setTimeOpen(true)}>
-              <MaterialIcons name="access-time" size={sp(18)} color={AppColors.primaryColor} />
-              <View style={{ width: w(8) }} />
-              <BaseText title={scheduleTime} size={sp(14)} color={AppColors.textColorTheme} fontWeight="500" />
-              <View style={{ flex: 1 }} />
-              <MaterialIcons name="keyboard-arrow-down" size={sp(20)} color={AppColors.textColorTheme} />
-            </Pressable>
-          </>
-        )}
-
-        <View style={{ height: h(20) }} />
-
         {/* Delivery Instructions */}
         <View style={{ flexDirection: 'row' }}>
           <BaseText title={t('delivery_instructions')} size={sp(16)} fontWeight="bold" color={AppColors.textColorTheme} />
@@ -232,30 +184,6 @@ export default function CheckoutAddressScreen() {
         </Pressable>
       </View>
 
-      {/* Schedule time picker */}
-      <Modal visible={timeOpen} transparent animationType="fade" onRequestClose={() => setTimeOpen(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setTimeOpen(false)}>
-          <View style={styles.modalMenu}>
-            {SCHEDULE_TIMES.map((time) => (
-              <Pressable
-                key={time}
-                style={styles.modalItem}
-                onPress={() => {
-                  setScheduleTime(time);
-                  setTimeOpen(false);
-                }}
-              >
-                <BaseText
-                  title={time}
-                  size={sp(15)}
-                  color={time === scheduleTime ? AppColors.primaryColor : AppColors.textColorTheme}
-                  fontWeight={time === scheduleTime ? 'bold' : 'normal'}
-                />
-              </Pressable>
-            ))}
-          </View>
-        </Pressable>
-      </Modal>
     </SafeAreaView>
   );
 }

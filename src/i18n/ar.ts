@@ -298,6 +298,7 @@ export const ar: Record<string, string> = {
   "item_in_cart": "عنصر واحد في السلة",
   "your_driver": "السائق الخاص بك",
   "finding_driver": "جاري البحث عن سائق لطلبك…",
+  "driver_assigned_when_ready": "سيتم تعيين سائق فور أن يصبح طلبك جاهزاً لدى المطعم.",
   "driver_phone": "رقم السائق",
   "halal": "حلال",
   "cakes": "كيك",
