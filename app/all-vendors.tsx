@@ -3,6 +3,7 @@ import React, { useEffect } from 'react';
 import { View, FlatList, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { goBack } from '@/lib/nav';
 import { AppColors, w, h } from '@/theme';
 import { t } from '@/i18n';
 import { AppBar, BaseText } from '@/components';
@@ -25,7 +26,7 @@ export default function AllVendorsScreen() {
     <SafeAreaView style={styles.scaffold} edges={['top', 'left', 'right']}>
       <AppBar
         title={t('all_vendors')}
-        onBack={() => router.back()}
+        onBack={() => goBack(router)}
         arrowColor={AppColors.textColorTheme}
       />
       <View style={styles.divider} />

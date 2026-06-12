@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { goBack } from '@/lib/nav';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { AppColors, w, h, r, sp } from '@/theme';
 import { QuicksandFamily, quicksand } from '@/theme/typography';
@@ -44,7 +45,7 @@ export default function SubCategoriesScreen() {
       {/* AppBar */}
       <View style={styles.appBar}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => goBack(router)}
           hitSlop={8}
           style={styles.appBarLeading}
         >

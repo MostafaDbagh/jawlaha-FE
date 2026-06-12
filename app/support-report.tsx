@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { goBack } from '@/lib/nav';
 
 import { AppColors, w, h, r, sp, TextStyles } from '@/theme';
 import { Responsive } from '@/theme/responsive';
@@ -111,7 +112,7 @@ export default function SupportReportScreen() {
     });
     if (ok) {
       showSnack(t('complaint_submitted'), 'success');
-      router.back();
+      goBack(router);
     }
   };
 
@@ -214,7 +215,7 @@ export default function SupportReportScreen() {
                 style={[TextStyles.headlineMedium, { color: AppColors.white }]}
               />
             </LoadingButton>
-            <LoadingButton onPress={() => router.back()} color={AppColors.red}>
+            <LoadingButton onPress={() => goBack(router)} color={AppColors.red}>
               <BaseText
                 title={t('cancel')}
                 style={[TextStyles.headlineMedium, { color: AppColors.white }]}

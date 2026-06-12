@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { goBack } from '@/lib/nav';
 import { AppColors, w, h, r, sp } from '@/theme';
 import { QuicksandFamily } from '@/theme/typography';
 import { BaseText } from '@/components';
@@ -130,7 +131,7 @@ export default function CheckoutPaymentScreen() {
       {/* AppBar */}
       <View style={styles.appBar}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => goBack(router)}
           hitSlop={8}
           style={styles.backBtn}
         >

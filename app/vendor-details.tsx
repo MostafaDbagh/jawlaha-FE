@@ -14,6 +14,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { goBack } from '@/lib/nav';
 
 import { AppColors, w, h, r, sp } from '@/theme';
 import { quicksand } from '@/theme/typography';
@@ -282,7 +283,7 @@ export default function VendorDetailsScreen() {
               <Pressable
                 style={styles.circleBtn}
                 hitSlop={8}
-                onPress={() => router.back()}
+                onPress={() => goBack(router)}
               >
                 <Ionicons
                   name="arrow-back"

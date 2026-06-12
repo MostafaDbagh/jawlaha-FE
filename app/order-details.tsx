@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { goBack } from '@/lib/nav';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 
 import { AppColors, w, h, r, sp } from '@/theme';
@@ -278,7 +279,7 @@ export default function OrderDetailsScreen() {
     >
       {/* AppBar: back arrow, no title, blends with the screen background */}
       <View style={styles.appBar}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
+        <Pressable onPress={() => goBack(router)} hitSlop={8}>
           <Ionicons name="arrow-back" size={sp(24)} color={AppColors.black} />
         </Pressable>
       </View>

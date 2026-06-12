@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { goBack } from '@/lib/nav';
 import { AppColors, w, h, r, sp } from '@/theme';
 import { BaseText } from '@/components';
 import { t } from '@/i18n';
@@ -121,7 +122,7 @@ export default function OrderHistoryScreen() {
       {/* AppBar */}
       <View style={styles.appBar}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => goBack(router)}
           hitSlop={8}
           style={styles.appBarLeading}
         >

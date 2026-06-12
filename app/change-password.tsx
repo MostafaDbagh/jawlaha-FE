@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { goBack } from '@/lib/nav';
 import { AppColors, TextStyles } from '@/theme';
 import { Responsive } from '@/theme/responsive';
 import { t } from '@/i18n';
@@ -110,7 +111,7 @@ export default function ChangePasswordScreen() {
             color={AppColors.red}
             onPress={() => {
               // Get.find<NavigationController>().handleBackPress();
-              router.back();
+              goBack(router);
             }}
           >
             <BaseText

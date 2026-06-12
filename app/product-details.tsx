@@ -16,6 +16,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { goBack } from '@/lib/nav';
 import { Image } from 'expo-image';
 
 import { AppColors, w, h, r, sp } from '@/theme';
@@ -359,7 +360,7 @@ export default function ProductDetailsScreen() {
     if (res.ok) {
       // If the backend reset a different restaurant's cart, say so.
       showSnack(res.reset ? t('cart_reset_new_restaurant') : t('added_to_cart'), 'success');
-      router.back();
+      goBack(router);
     }
   };
 
@@ -380,7 +381,7 @@ export default function ProductDetailsScreen() {
 
             {/* Leading back button */}
             <View style={[styles.leadingBtn, { top: insets.top + h(8) }]}>
-              <TouchableOpacity hitSlop={8} onPress={() => router.back()}>
+              <TouchableOpacity hitSlop={8} onPress={() => goBack(router)}>
                 <Ionicons name="arrow-back" color={AppColors.white} size={sp(20)} />
               </TouchableOpacity>
             </View>
