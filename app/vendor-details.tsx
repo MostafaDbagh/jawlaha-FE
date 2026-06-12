@@ -29,6 +29,8 @@ import { navArgs, useNavArgs } from '@/store/navArgs';
 import { useBranchesStore } from '@/features/branches/branchesStore';
 import { useProductStore } from '@/features/categories/productStore';
 import { useCartStore } from '@/features/cart/cartStore';
+import { useFavoritesStore } from '@/features/favorites/favoritesStore';
+import { useAuthStore } from '@/store/authStore';
 import { repository } from '@/data/repository';
 import { formatPrice } from '@/lib/currency';
 import { cuisineLabels } from '@/lib/cuisines';
@@ -65,7 +67,6 @@ export default function VendorDetailsScreen() {
   const cartSummary = useCartStore((s) => s.summary);
   const cartHasItems = cartSummary.items_count > 0;
 
-  const [favorite, setFavorite] = useState(false);
   // Restaurant-authored promo banners (replaces the old hardcoded cards).
   const [promotions, setPromotions] = useState<VendorPromotionModel[]>([]);
 
@@ -87,6 +88,28 @@ export default function VendorDetailsScreen() {
       ? currentBranch
       : undefined) ??
     (argVendor ? vendorBranches[0] : undefined);
+
+  // Heart state from the per-user favorites store (server-backed), keyed by
+  // the branch — favoriting a restaurant means this location.
+  const favoriteKeys = useFavoritesStore((s) => s.keys);
+  const favorite = branch?.id != null && favoriteKeys.has(`branch:${String(branch.id)}`);
+
+  useEffect(() => {
+    if (useAuthStore.getState().isLoggedIn) {
+      useFavoritesStore.getState().load();
+    }
+  }, []);
+
+  const onToggleFavorite = async () => {
+    if (branch?.id == null) return;
+    if (!useAuthStore.getState().isLoggedIn) {
+      showSnack(t('login_required_to_order'), 'info');
+      router.push('/login');
+      return;
+    }
+    const nowFavorite = await useFavoritesStore.getState().toggle('branch', String(branch.id));
+    showSnack(nowFavorite ? t('added_to_favorites') : t('removed_from_favorites'), 'success');
+  };
 
   // Fetch the branch by id when only a branchId was passed (cart "Add More Items").
   useEffect(() => {
@@ -297,10 +320,7 @@ export default function VendorDetailsScreen() {
               <Pressable
                 style={styles.circleBtn}
                 hitSlop={8}
-                onPress={() => {
-                  setFavorite((v) => !v);
-                  showSnack(favorite ? t('removed_from_favorites') : t('added_to_favorites'), 'success');
-                }}
+                onPress={onToggleFavorite}
               >
                 <Ionicons
                   name={favorite ? 'heart' : 'heart-outline'}

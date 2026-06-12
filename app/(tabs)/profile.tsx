@@ -92,7 +92,7 @@ export default function ProfileScreen() {
               icon="heart-outline"
               title={t('favorites')}
               disabled={guestDisabled}
-              onPress={() => showSnack(t('coming_soon'), 'info')}
+              onPress={() => router.push('/favorites')}
             />
             <ProfileMenuItem
               icon="settings-outline"

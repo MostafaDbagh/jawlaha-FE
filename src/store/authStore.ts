@@ -49,5 +49,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     await secureStorage.clearAllData();
     setAuthToken('');
     set({ token: '', refreshToken: '', user: null, isLoggedIn: false });
+    // Favorites belong to the signed-out user — don't leak them to the next
+    // session on this device. Lazy import avoids a store-to-store cycle.
+    const { useFavoritesStore } = require('@/features/favorites/favoritesStore');
+    useFavoritesStore.getState().reset();
   },
 }));

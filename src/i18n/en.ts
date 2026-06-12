@@ -442,6 +442,8 @@ export const en: Record<string, string> = {
   "restaurants": "Restaurants",
   "added_to_favorites": "Added to favorites",
   "removed_from_favorites": "Removed from favorites",
+  "no_favorites": "No favorites yet — tap the heart on a meal or restaurant to save it here",
+  "meals": "Meals",
   "added_to_cart": "Added to cart",
   "coming_soon": "Coming soon",
   "calling_driver": "Calling the driver…",

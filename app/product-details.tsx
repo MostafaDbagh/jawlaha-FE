@@ -24,6 +24,7 @@ import { quicksand } from '@/theme/typography';
 import { t } from '@/i18n';
 import { useProductStore } from '@/features/categories/productStore';
 import { useCartStore } from '@/features/cart/cartStore';
+import { useFavoritesStore } from '@/features/favorites/favoritesStore';
 import { useAuthStore } from '@/store/authStore';
 import { useNavArgs } from '@/store/navArgs';
 import { formatPrice } from '@/lib/currency';
@@ -53,6 +54,7 @@ export default function ProductDetailsScreen() {
   useEffect(() => {
     if (useAuthStore.getState().isLoggedIn) {
       useCartStore.getState().loadCart();
+      useFavoritesStore.getState().load();
     }
   }, []);
 
@@ -123,10 +125,25 @@ export default function ProductDetailsScreen() {
     string | number | null
   >(null);
   const [qty, setQty] = useState(1);
-  const [favorite, setFavorite] = useState(false);
   // Free-text special request sent with the cart line ("extra garlic sauce,
   // no pomegranate sauce"). Free of charge — paid extras live in optionGroups.
   const [note, setNote] = useState('');
+
+  // Heart state comes from the per-user favorites store (server-backed), so it
+  // survives leaving the screen and is shared with the favorites list.
+  const favoriteKeys = useFavoritesStore((s) => s.keys);
+  const favorite = product != null && favoriteKeys.has(`product:${String(product.id)}`);
+
+  const onToggleFavorite = async () => {
+    if (!product) return;
+    if (!useAuthStore.getState().isLoggedIn) {
+      showSnack(t('login_required_to_order'), 'info');
+      router.push('/login');
+      return;
+    }
+    const nowFavorite = await useFavoritesStore.getState().toggle('product', String(product.id));
+    showSnack(nowFavorite ? t('added_to_favorites') : t('removed_from_favorites'), 'success');
+  };
 
   const buildIndicator = (isActive: boolean, key: number) => (
     <View
@@ -388,7 +405,7 @@ export default function ProductDetailsScreen() {
 
             {/* Action favorite button */}
             <View style={[styles.actionBtn, { top: insets.top + h(8) }]}>
-              <TouchableOpacity hitSlop={8} onPress={() => setFavorite((v) => !v)}>
+              <TouchableOpacity hitSlop={8} onPress={onToggleFavorite}>
                 <Ionicons
                   name={favorite ? 'heart' : 'heart-outline'}
                   color={favorite ? AppColors.red : AppColors.white}

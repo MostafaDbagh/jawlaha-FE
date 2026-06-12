@@ -422,6 +422,8 @@ export const ar: Record<string, string> = {
   "restaurants": "المطاعم",
   "added_to_favorites": "أُضيف إلى المفضلة",
   "removed_from_favorites": "أُزيل من المفضلة",
+  "no_favorites": "لا توجد مفضلات بعد — اضغط على القلب على وجبة أو مطعم لحفظه هنا",
+  "meals": "الوجبات",
   "added_to_cart": "أُضيف إلى السلة",
   "coming_soon": "قريباً",
   "calling_driver": "جارٍ الاتصال بالسائق…",
