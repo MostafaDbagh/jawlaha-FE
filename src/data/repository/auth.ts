@@ -436,15 +436,44 @@ export async function refreshToken(): Promise<CustomResponse> {
   return data;
 }
 
-// Let the API client transparently refresh an expired access token on a 401.
-// Registered here (not in the client) to keep the low-level client free of an
-// auth-store dependency. Returns true only when a usable token is now stored.
+// Re-authenticate transparently using credentials saved at the last password
+// login/registration (Keeta-style). Talks to the repository directly so a
+// silent attempt never surfaces an error snackbar. Phone-OTP logins save no
+// credentials, so this is a no-op for them — they fall through to logout.
+async function silentRelogin(): Promise<boolean> {
+  const creds = await secureStorage.getCredentials();
+  if (!creds) return false;
+  try {
+    const res = creds.phone
+      ? await loginWithPhone(creds.phone, creds.password)
+      : creds.email
+        ? await login(creds.email, creds.password)
+        : null;
+    return (res?.success ?? false) && !!useAuthStore.getState().token;
+  } catch {
+    return false;
+  }
+}
+
+// Let the API client transparently recover from a 401. Registered here (not in
+// the client) to keep the low-level client free of an auth-store dependency.
+// An expired access token is refreshed via the refresh token; if the refresh
+// token itself is rejected (expired/revoked) we fall back to a silent re-login,
+// and only when that too is impossible do we clear the dead session so the app
+// drops to a clean guest state instead of looping on 401s behind a misleading
+// "couldn't load" error. A transient network failure (no HTTP status, code -1)
+// keeps the session — we never sign a user out over a flaky connection.
 setTokenRefresher(async () => {
   const hasRefresh =
     !!useAuthStore.getState().refreshToken || !!(await secureStorage.getRefreshToken());
-  if (!hasRefresh) return false;
-  const res = await refreshToken();
-  return res.success && !!useAuthStore.getState().token;
+  if (hasRefresh) {
+    const res = await refreshToken();
+    if (res.success && !!useAuthStore.getState().token) return true;
+    if (res.statusCode !== 401) return false;
+  }
+  if (await silentRelogin()) return true;
+  await useAuthStore.getState().logout();
+  return false;
 });
 
 export async function resendOtp(email: string): Promise<CustomResponse> {

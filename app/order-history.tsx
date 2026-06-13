@@ -19,6 +19,7 @@ import { t } from '@/i18n';
 import { formatPrice } from '@/lib/currency';
 import { navArgs } from '@/store/navArgs';
 import { useOrdersStore, type Order } from '@/features/orders/ordersStore';
+import { useAuthStore } from '@/store/authStore';
 
 // In-progress statuses (used for client-side filtering of the "In Progress" tab).
 const IN_PROGRESS_STATUSES = ['pending', 'preparing', 'ready', 'on_the_way'];
@@ -78,6 +79,10 @@ export default function OrderHistoryScreen() {
   const totalOrders = useOrdersStore((s) => s.totalOrders);
   const isLoading = useOrdersStore((s) => s.isLoading);
   const loadError = useOrdersStore((s) => s.loadError);
+  // Orders are per-user, so the list needs auth. A guest (or a session that
+  // just expired) gets a sign-in prompt instead of firing a doomed request that
+  // 401s and surfaces as a misleading "couldn't load — check your connection".
+  const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
 
   const [selectedFilter, setSelectedFilter] = useState<string>('All Orders');
   const filters: string[] = [
@@ -97,11 +102,13 @@ export default function OrderHistoryScreen() {
   }, []);
 
   // Reload on every focus so a freshly placed order (and any status changes)
-  // are reflected, not just on the first mount.
+  // are reflected, not just on the first mount. Skip while signed out — the
+  // request would only 401. Depending on isLoggedIn also re-runs this (and
+  // re-renders the guest branch) the moment a session is cleared mid-view.
   useFocusEffect(
     useCallback(() => {
-      loadForFilter(selectedFilter);
-    }, [selectedFilter, loadForFilter]),
+      if (isLoggedIn) loadForFilter(selectedFilter);
+    }, [isLoggedIn, selectedFilter, loadForFilter]),
   );
 
   const onSelectFilter = (filter: string) => {
@@ -218,7 +225,25 @@ export default function OrderHistoryScreen() {
         </ScrollView>
 
         {/* List */}
-        {isLoading && orders.length === 0 ? (
+        {!isLoggedIn ? (
+          // Signed out (never logged in, or the session expired and was
+          // cleared) — prompt to sign in rather than show a network error.
+          <View style={styles.centerFill}>
+            <BaseText
+              title={t('login_required_guest')}
+              size={sp(14)}
+              color={AppColors.textColor2}
+              textAlign="center"
+            />
+            <Pressable
+              onPress={() => router.push('/login')}
+              style={styles.retryBtn}
+              hitSlop={8}
+            >
+              <BaseText title={t('sign_in')} size={sp(14)} fontWeight="600" color={AppColors.white} />
+            </Pressable>
+          </View>
+        ) : isLoading && orders.length === 0 ? (
           <View style={styles.centerFill}>
             <ActivityIndicator color={AppColors.primaryColor} />
           </View>
@@ -310,18 +335,28 @@ export default function OrderHistoryScreen() {
                       color={AppColors.textColor2}
                     />
                     <View style={{ height: h(12) }} />
-                    {/* Titles */}
-                    <BaseText
-                      title={order.vendor_name ?? ''}
-                      size={sp(16)}
-                      color={AppColors.textColorTheme}
-                    />
-                    <View style={{ height: h(4) }} />
-                    <BaseText
-                      title={`${order.items.length} ${t('items')}`}
-                      size={sp(12)}
-                      color={AppColors.textColor2}
-                    />
+                    {/* Titles — Box errands have no vendor; show the Box label. */}
+                    {(() => {
+                      const isBox = order.order_type === 'box';
+                      const itemCount = isBox
+                        ? order.box?.items?.length ?? order.items.length
+                        : order.items.length;
+                      return (
+                        <>
+                          <BaseText
+                            title={isBox ? t('box_order_label') : order.vendor_name ?? ''}
+                            size={sp(16)}
+                            color={AppColors.textColorTheme}
+                          />
+                          <View style={{ height: h(4) }} />
+                          <BaseText
+                            title={`${itemCount} ${t('items')}`}
+                            size={sp(12)}
+                            color={AppColors.textColor2}
+                          />
+                        </>
+                      );
+                    })()}
                     <View style={{ height: h(16) }} />
                     {/* Footer */}
                     <View style={styles.rowBetween}>

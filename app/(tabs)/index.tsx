@@ -88,7 +88,7 @@ function OfferWatermark({ offer }: { offer: { title?: string; description?: stri
 export default function HomeScreen() {
   const router = useRouter();
 
-  const { lang } = useI18n();
+  const { lang, isRTL } = useI18n();
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
   const cartCount = useCartStore((s) => s.summary.items_count);
   const city = useCityStore((s) => s.city);
@@ -236,6 +236,47 @@ export default function HomeScreen() {
           />
         </View>
 
+        {/* Jawlaha Box — errand / personal-courier entry (hidden while searching) */}
+        {!isSearching && (
+          <>
+            <View style={{ height: h(16) }} />
+            <Pressable
+              style={styles.boxCard}
+              onPress={() => router.push(isLoggedIn ? '/jawlaha-box' : '/login')}
+            >
+              <View style={styles.boxIconWrap}>
+                <MaterialCommunityIcons
+                  name="package-variant-closed"
+                  size={sp(26)}
+                  color={AppColors.white}
+                />
+              </View>
+              <View style={{ width: w(12) }} />
+              <View style={{ flex: 1 }}>
+                <BaseText
+                  title={t('box_home_card_title')}
+                  size={sp(16)}
+                  fontWeight="700"
+                  color={AppColors.white}
+                  numberOfLines={1}
+                />
+                <View style={{ height: h(2) }} />
+                <BaseText
+                  title={t('box_home_card_subtitle')}
+                  size={sp(12)}
+                  color="rgba(255,255,255,0.9)"
+                  numberOfLines={1}
+                />
+              </View>
+              <MaterialIcons
+                name={isRTL ? 'chevron-left' : 'chevron-right'}
+                size={sp(26)}
+                color={AppColors.white}
+              />
+            </Pressable>
+          </>
+        )}
+
         {/* 1. Categories */}
         {(isCategoriesLoading || filteredCategories.length > 0) && (
           <>
@@ -382,6 +423,22 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: AppColors.white },
   fullWidth: { width: '100%' },
+  boxCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: w(14),
+    borderRadius: r(14),
+    backgroundColor: AppColors.primaryColor,
+    overflow: 'hidden',
+  },
+  boxIconWrap: {
+    width: w(44),
+    height: w(44),
+    borderRadius: r(12),
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   cityPrompt: {
     marginTop: h(28),
     alignItems: 'center',

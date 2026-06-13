@@ -242,6 +242,14 @@ export default function VendorDetailsScreen() {
 
   const headerTitle = branch.name ?? argVendor?.name ?? '';
   const isOpen = branch.isOpen ?? false;
+  // The restaurant's open/close hours (e.g. "09:00 - 23:00"), set by the merchant
+  // and resolved server-side. Shown under the live open/closed status.
+  const openingHoursText = branch.openingHours ?? '';
+  // Today's closing time ("HH:MM"), shown next to the open status as
+  // "Open Now · closes at 23:30" so customers know how long they can order.
+  const closesAt = branch.closesAt ?? '';
+  const openStatusText =
+    isOpen && closesAt ? `${t('open_now')} · ${t('closes_at')} ${closesAt}` : t('open_now');
   const deliveryTimeText = branch.deliveryTime ?? '';
   const deliveryFeeText = branch.freeDelivery
     ? t('free_delivery')
@@ -417,7 +425,7 @@ export default function VendorDetailsScreen() {
                   />
                   <View style={{ width: w(6) }} />
                   <BaseText
-                    title={isBusy ? t('restaurant_busy') : isOpen ? t('open_now') : t('closed')}
+                    title={isBusy ? t('restaurant_busy') : isOpen ? openStatusText : t('closed')}
                     style={{
                       fontSize: sp(13),
                       fontFamily: quicksand('bold'),
@@ -429,11 +437,26 @@ export default function VendorDetailsScreen() {
                     }}
                   />
                 </View>
+                {/* The restaurant's open/close hours, set by the merchant and
+                    auto-reflected here (hidden when no schedule is set). */}
+                {openingHoursText ? (
+                  <>
+                    <View style={{ height: h(4) }} />
+                    <View style={styles.infoRow}>
+                      <MaterialIcons name="schedule" size={sp(13)} color={AppColors.textColor2} />
+                      <View style={{ width: w(4) }} />
+                      <BaseText
+                        title={openingHoursText}
+                        style={{ fontSize: sp(12), color: AppColors.textColor2 }}
+                      />
+                    </View>
+                  </>
+                ) : null}
               </View>
             </View>
             <View style={{ height: h(16) }} />
 
-            {/* Stats card — delivery time · delivery fee */}
+            {/* Stats card — delivery time · delivery fee · delivered by */}
             <View style={styles.statsCard}>
               {buildStat(
                 'access-time',
@@ -446,6 +469,13 @@ export default function VendorDetailsScreen() {
                 'delivery-dining',
                 deliveryFeeText,
                 t('delivery_fee'),
+                AppColors.primaryColor,
+              )}
+              <View style={styles.statDivider} />
+              {buildStat(
+                'pedal-bike',
+                t('jawlah'),
+                t('delivered_by'),
                 AppColors.primaryColor,
               )}
             </View>

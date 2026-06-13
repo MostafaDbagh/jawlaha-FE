@@ -363,11 +363,39 @@ export default function OrderDetailsScreen() {
             )}
             <View style={{ height: h(24) }} />
 
-            {/* Stores & Items */}
+            {/* Stores & Items — Box errands have no vendor; label them and list
+                their non-restaurant pickup places. */}
             <SectionTitle title={t('stores_and_items')} />
+            {order.order_type === 'box' && (order.box?.stops?.length ?? 0) > 0 && (
+              <View style={[styles.card, styles.cardPad, { marginBottom: h(10) }]}>
+                {order.box!.stops.map((s, i) => (
+                  <View key={`stop-${i}`} style={styles.boxStopRow}>
+                    <MaterialIcons name="place" size={sp(18)} color={AppColors.primaryColor} />
+                    <View style={{ width: w(8) }} />
+                    <View style={{ flex: 1 }}>
+                      <BaseText
+                        title={s.place_name}
+                        size={sp(14)}
+                        fontWeight="600"
+                        color={AppColors.black}
+                        numberOfLines={1}
+                      />
+                      {s.address ? (
+                        <BaseText
+                          title={s.address}
+                          size={sp(12)}
+                          color={AppColors.textColor2}
+                          numberOfLines={2}
+                        />
+                      ) : null}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
             <View style={{ alignSelf: 'stretch' }}>
               <StoreItemBlock
-                storeName={order.vendor_name ?? ''}
+                storeName={order.order_type === 'box' ? t('box_order_label') : order.vendor_name ?? ''}
                 items={order.items}
               />
             </View>
@@ -619,6 +647,33 @@ export default function OrderDetailsScreen() {
               </Pressable>
             )}
 
+            {/* Rate this restaurant — only for delivered orders (the backend
+                only accepts a review once an order has actually arrived). */}
+            {order.status === 'delivered' && order.branch_id ? (
+              <>
+                <View style={{ height: h(12) }} />
+                <Pressable
+                  onPress={() => {
+                    navArgs.set({
+                      reviewBranchId: order.branch_id,
+                      reviewVendorName: order.vendor_name ?? '',
+                    });
+                    router.push('/write-review');
+                  }}
+                  style={styles.reviewButton}
+                >
+                  <Ionicons name="star-outline" size={sp(18)} color={AppColors.white} />
+                  <View style={{ width: w(8) }} />
+                  <BaseText
+                    title={t('rate_your_order')}
+                    size={sp(15)}
+                    color={AppColors.white}
+                    fontWeight="bold"
+                  />
+                </Pressable>
+              </>
+            ) : null}
+
             {/* Report a problem with this order — pre-fills the complaint form
                 with this order's reference number. */}
             <View style={{ height: h(12) }} />
@@ -725,6 +780,11 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: AppColors.dividerColor,
     marginVertical: h(12),
+  },
+  boxStopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: h(6),
   },
   storeCard: {
     alignSelf: 'stretch',
@@ -888,6 +948,15 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: AppColors.secondMainColor,
     backgroundColor: 'rgba(227,77,56,0.06)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reviewButton: {
+    alignSelf: 'stretch',
+    height: h(52),
+    backgroundColor: AppColors.primaryColor,
+    borderRadius: r(14),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

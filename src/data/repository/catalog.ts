@@ -243,6 +243,21 @@ export async function getUserReviews(userId: number): Promise<CustomResponse> {
   });
 }
 
+// Submit a review for a branch (rating 1-5 + optional comment). The backend
+// requires the customer to have had an order delivered from this branch and
+// allows one review per branch; on failure res.msg carries the reason
+// (e.g. already reviewed / not eligible) so the UI can surface it.
+export async function createReview(
+  branchId: string | number,
+  args: { rating: number; comment?: string },
+): Promise<CustomResponse> {
+  return await apiClient.postV2({
+    subUrl: `reviews/branches/${branchId}`,
+    data: { rating: args.rating, comment: args.comment ?? '' },
+    needToken: true,
+  });
+}
+
 //-------------------------------------------------------
 //-------------------[Offers Repository]-----------------
 //-------------------------------------------------------
@@ -325,6 +340,7 @@ export const catalogRepo = {
   getBranchReviews,
   getBranchReviewStats,
   getUserReviews,
+  createReview,
   getActiveOffers,
   getExpiredOffers,
   getOffer,

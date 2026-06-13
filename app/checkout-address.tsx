@@ -32,6 +32,7 @@ export default function CheckoutAddressScreen() {
   const addresses = useAddressStore((s) => s.addresses);
   const selectedId = useAddressStore((s) => s.selectedId);
   const subtotal = useCartStore((s) => s.summary.subtotal);
+  const deliveryFee = useCartStore((s) => s.summary.delivery_fee);
 
   const [instructions, setInstructions] = useState('');
 
@@ -39,7 +40,7 @@ export default function CheckoutAddressScreen() {
     useAddressStore.getState().hydrate();
   }, []);
 
-  const totals = computeTotals(subtotal);
+  const totals = computeTotals(subtotal, 0, deliveryFee);
   const selected = addresses.find((a) => a.id === selectedId);
 
   const onProceed = () => {

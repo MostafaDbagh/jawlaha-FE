@@ -62,9 +62,11 @@ export default function CheckoutPaymentScreen() {
     ? t('confirm_delivery_to', { type: deliveryType })
     : t('confirm_delivery_location');
 
-  // Flat delivery fee — same value shown on the cart and address steps, and the
-  // same the backend charges when the order is placed.
-  const deliveryFee = summary.subtotal > 0 ? DELIVERY_FEE : 0;
+  // Company-controlled delivery fee resolved by the backend for this cart's
+  // restaurant (admin-set, higher for farther cities) — the same value shown on
+  // the cart/address steps and charged when the order is placed. Falls back to
+  // the flat constant only if the summary hasn't loaded yet.
+  const deliveryFee = summary.delivery_fee ?? (summary.subtotal > 0 ? DELIVERY_FEE : 0);
   const total = summary.subtotal + deliveryFee;
 
   // ---- _buildSummaryRow ----

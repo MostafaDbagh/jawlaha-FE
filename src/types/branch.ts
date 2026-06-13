@@ -15,6 +15,9 @@ export interface BranchModel {
   longitude?: number;
   isActive?: boolean;
   openingHours?: string;
+  // Today's closing time ("HH:MM") computed by the backend from the schedule,
+  // shown as "open · closes at 23:30". Undefined when there's no schedule today.
+  closesAt?: string;
   vendorId?: string | number;
   // Backend (jawlahapp) fields:
   image?: string;
@@ -56,6 +59,7 @@ export function parseBranchModel(json: any): BranchModel {
     longitude: (json?.lng ?? json?.longitude) != null ? Number(json.lng ?? json.longitude) : undefined,
     isActive: json?.is_active,
     openingHours: json?.opening_hours,
+    closesAt: json?.closes_at ?? undefined,
     vendorId: json?.vendor_id,
     image: json?.image,
     deliveryTime: json?.delivery_time,

@@ -21,6 +21,11 @@ export interface CartItem {
 export interface CartSummary {
   items_count: number;
   subtotal: number;
+  // Company-controlled delivery fee resolved by the backend for this cart's
+  // restaurant (admin-set, higher for farther cities, free above the threshold).
+  // Absent only during the brief optimistic window of a local quantity change.
+  delivery_fee?: number;
+  total?: number;
 }
 
 // `reset` is true when the backend cleared a previous restaurant's cart because
@@ -115,32 +120,36 @@ export const useCartStore = create<CartState>((set, get) => ({
     if (qty <= 0) return get().removeItem(lineKey);
 
     // Optimistic update so the stepper responds instantly; roll back on failure.
+    // Carry over the server-resolved delivery_fee so the total doesn't flicker
+    // to the fallback fee before the server reconciles.
     const prev = get().items;
+    const prevSummary = get().summary;
     const next = prev.map((it) =>
       matchesLine(it, lineKey) ? { ...it, qty } : it,
     );
-    set({ items: next, summary: computeSummary(next) });
+    set({ items: next, summary: { ...computeSummary(next), delivery_fee: prevSummary.delivery_fee } });
 
     const res = await ordersRepo.updateCartItem(lineKey, qty);
     if (res.success) {
       // Reconcile with the authoritative cart echoed back by the server.
       applyCart(set, cartFromResponse(res));
     } else {
-      set({ items: prev, summary: computeSummary(prev) });
+      set({ items: prev, summary: prevSummary });
       showSnack(res.msg || 'Failed to update cart', 'error');
     }
   },
 
   async removeItem(lineKey) {
     const prev = get().items;
+    const prevSummary = get().summary;
     const next = prev.filter((it) => !matchesLine(it, lineKey));
-    set({ items: next, summary: computeSummary(next) });
+    set({ items: next, summary: { ...computeSummary(next), delivery_fee: prevSummary.delivery_fee } });
 
     const res = await ordersRepo.removeCartItem(lineKey);
     if (res.success) {
       applyCart(set, cartFromResponse(res));
     } else {
-      set({ items: prev, summary: computeSummary(prev) });
+      set({ items: prev, summary: prevSummary });
       showSnack(res.msg || 'Failed to remove item', 'error');
     }
   },

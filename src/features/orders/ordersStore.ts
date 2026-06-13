@@ -21,8 +21,43 @@ export interface TimelineStep {
   done: boolean;
 }
 
+// Jawlaha Box sub-document — present only on errand/courier orders
+// (order_type === 'box'). Items are free text and stops are non-restaurant
+// pickup places; the driver fronts the purchase cash (COD).
+export interface BoxStop {
+  place_name: string;
+  address?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  note?: string | null;
+}
+
+export interface BoxItem {
+  description: string;
+  qty: number;
+  category?: string | null;
+  note?: string | null;
+  stop_index?: number;
+  status?: string | null;
+  actual_price?: number | null;
+}
+
+export interface OrderBox {
+  stops: BoxStop[];
+  items: BoxItem[];
+  budget_cap?: number;
+  service_fee?: number;
+  purchases_total?: number;
+  instructions?: string | null;
+}
+
 export interface Order {
   order_id: string;
+  // Discriminates a normal restaurant order from a Jawlaha Box errand. Defaults
+  // to 'restaurant' when the backend omits it (older orders).
+  order_type?: 'restaurant' | 'box';
+  // Errand details — only populated when order_type === 'box'.
+  box?: OrderBox | null;
   branch_id?: string | null;
   vendor_name?: string | null;
   items: OrderItem[];

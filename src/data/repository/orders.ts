@@ -74,6 +74,70 @@ export async function getOrder(id: string): Promise<CustomResponse> {
 // cancelled or edited by the customer (Keeta-style); the backend exposes no
 // customer cancel endpoint.
 
+// --------------------------- Jawlaha Box ---------------------------
+// Errand/courier flow: the customer asks a driver to buy/pick up free-text
+// items from NON-restaurant places and deliver them (COD). The server resolves
+// the service fee and enforces all limits — the client only sends inputs.
+
+export interface BoxConfig {
+  base_fee: number;
+  extra_item_fee: number;
+  extra_stop_fee: number;
+  included_items: number;
+  max_items: number;
+  max_stops: number;
+  max_budget: number;
+  currency: string;
+}
+
+export interface BoxStopInput {
+  place_name: string;
+  address?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  note?: string | null;
+}
+
+export interface BoxItemInput {
+  description: string;
+  qty: number;
+  category?: string | null;
+  note?: string | null;
+  stop_index: number;
+}
+
+export interface CreateBoxOrderInput {
+  stops: BoxStopInput[];
+  items: BoxItemInput[];
+  budget_cap: number;
+  instructions?: string | null;
+  city?: string | null;
+  delivery_address: string;
+  delivery_lat?: number | null;
+  delivery_lng?: number | null;
+}
+
+/** Box pricing + limits (admin-set, server-resolved). `city` scopes the fee. */
+export async function getBoxConfig(city?: string | null): Promise<CustomResponse> {
+  return await apiClient.getV2({
+    subUrl: 'orders/box/config',
+    query: city ? { city } : undefined,
+    needToken: true,
+    fromJson: identity,
+  });
+}
+
+/** Place a Box order (COD). 409 = a pickup matches a listed restaurant;
+ *  400 = a limit/budget/destination violation. Both carry a `message`. */
+export async function createBoxOrder(payload: CreateBoxOrderInput): Promise<CustomResponse> {
+  return await apiClient.postV2({
+    subUrl: 'orders/box',
+    data: payload,
+    needToken: true,
+    fromJson: identity,
+  });
+}
+
 export const ordersRepo = {
   getCart,
   addCartItem,
@@ -83,4 +147,6 @@ export const ordersRepo = {
   createOrder,
   getOrders,
   getOrder,
+  getBoxConfig,
+  createBoxOrder,
 };

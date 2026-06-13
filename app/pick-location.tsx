@@ -82,6 +82,13 @@ export default function PickLocationScreen() {
   const webRef = useRef<WebView>(null);
   const html = React.useMemo(() => buildHtml(initial), [initial]);
 
+  // The picker is shared (saved addresses + Jawlaha Box stops/destination); the
+  // opener records where to return via the locationPicker store. Default to the
+  // saved-address flow so existing callers are unaffected.
+  const [returnTo] = useState<string>(
+    () => useLocationPicker.getState().returnTo ?? '/add-address',
+  );
+
   const onMessage = (e: WebViewMessageEvent) => {
     try {
       const msg = JSON.parse(e.nativeEvent.data);
@@ -116,7 +123,7 @@ export default function PickLocationScreen() {
 
   const onConfirm = () => {
     useLocationPicker.getState().setResult(center);
-    goBack(router, '/add-address');
+    goBack(router, returnTo);
   };
 
   const backIcon = isRTL ? 'arrow-forward' : 'arrow-back';
@@ -125,7 +132,7 @@ export default function PickLocationScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       {/* AppBar */}
       <View style={styles.appBar}>
-        <Pressable onPress={() => goBack(router, '/add-address')} hitSlop={8} style={styles.iconBtn}>
+        <Pressable onPress={() => goBack(router, returnTo)} hitSlop={8} style={styles.iconBtn}>
           <Ionicons name={backIcon as any} size={sp(24)} color={AppColors.textColorTheme} />
         </Pressable>
         <BaseText

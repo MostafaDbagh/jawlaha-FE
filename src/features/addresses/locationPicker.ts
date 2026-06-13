@@ -13,7 +13,12 @@ interface LocationPickerState {
   initial: LatLng | null;
   /** The pin the user confirmed; consumed once by the opener, then cleared. */
   result: LatLng | null;
-  open: (initial: LatLng | null) => void;
+  /** Route the picker returns to on confirm/back (defaults to /add-address). */
+  returnTo: string | null;
+  /** Opaque tag the opener uses to know WHICH pin came back (e.g. a stop id or
+   *  'destination' in the Box flow where several pins share one picker). */
+  target: string | null;
+  open: (initial: LatLng | null, opts?: { returnTo?: string; target?: string }) => void;
   setResult: (r: LatLng) => void;
   clearResult: () => void;
 }
@@ -21,7 +26,10 @@ interface LocationPickerState {
 export const useLocationPicker = create<LocationPickerState>((set) => ({
   initial: null,
   result: null,
-  open: (initial) => set({ initial, result: null }),
+  returnTo: null,
+  target: null,
+  open: (initial, opts) =>
+    set({ initial, result: null, returnTo: opts?.returnTo ?? null, target: opts?.target ?? null }),
   setResult: (result) => set({ result }),
   clearResult: () => set({ result: null }),
 }));

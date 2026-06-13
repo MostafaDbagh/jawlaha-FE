@@ -1,10 +1,11 @@
 // Order total math shared by the cart and checkout screens so they never drift.
-// The backend cart only returns a subtotal today; delivery fee / VAT / promo are
-// computed client-side here until dedicated endpoints exist.
+// The delivery fee is company-controlled (admin-set, and higher for farther
+// cities); the backend resolves it for the cart's restaurant and returns it on
+// the cart summary as `delivery_fee`. Pass that into computeTotals.
 
-// Flat delivery fee (SYP) charged on every order. Kept in sync with the backend
-// (jawlahapp/src/controllers/orderController.js DELIVERY_FEE) so the quoted total
-// matches what the customer is actually charged.
+// Fallback delivery fee (SYP) used only until the server-resolved fee arrives
+// (e.g. during the brief optimistic window of a quantity change). The real,
+// admin-controlled fee comes from the cart summary's `delivery_fee`.
 export const DELIVERY_FEE = 10000;
 
 // Syria has no consumer VAT on these orders, so the tax line stays at 0 while
@@ -39,8 +40,11 @@ export interface Totals {
   total: number;
 }
 
-export function computeTotals(subtotal: number, discount = 0): Totals {
-  const deliveryFee = subtotal > 0 ? DELIVERY_FEE : 0;
+// `serverDeliveryFee` is the admin-resolved fee from the cart summary. When it's
+// provided we use it verbatim (it already accounts for per-city pricing and the
+// free-delivery threshold); otherwise we fall back to the flat constant.
+export function computeTotals(subtotal: number, discount = 0, serverDeliveryFee?: number | null): Totals {
+  const deliveryFee = serverDeliveryFee != null ? serverDeliveryFee : subtotal > 0 ? DELIVERY_FEE : 0;
   const tax = Math.round(subtotal * VAT_RATE);
   const total = Math.max(0, subtotal + deliveryFee + tax - discount);
   return { subtotal, deliveryFee, tax, discount, total };

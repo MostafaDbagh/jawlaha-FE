@@ -102,7 +102,7 @@ export default function CartScreen() {
     return Array.from(byId.values());
   }, [items, branches]);
 
-  const totals = computeTotals(summary.subtotal, discount);
+  const totals = computeTotals(summary.subtotal, discount, summary.delivery_fee);
 
   const onApplyPromo = () => {
     const res = applyPromo(promo, summary.subtotal);
