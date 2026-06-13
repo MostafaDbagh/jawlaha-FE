@@ -7,6 +7,7 @@ import {
   StyleSheet,
   FlatList,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
@@ -76,6 +77,7 @@ export default function OrderHistoryScreen() {
   const orders = useOrdersStore((s) => s.orders);
   const totalOrders = useOrdersStore((s) => s.totalOrders);
   const isLoading = useOrdersStore((s) => s.isLoading);
+  const loadError = useOrdersStore((s) => s.loadError);
 
   const [selectedFilter, setSelectedFilter] = useState<string>('All Orders');
   const filters: string[] = [
@@ -85,23 +87,26 @@ export default function OrderHistoryScreen() {
     'Cancelled',
   ];
 
-  // Reload on every focus so a freshly placed order (and any status changes)
-  // are reflected, not just on the first mount.
-  useFocusEffect(
-    useCallback(() => {
-      const load = useOrdersStore.getState().loadOrders;
-      if (selectedFilter === 'Delivered') load('delivered');
-      else if (selectedFilter === 'Cancelled') load('cancelled');
-      else load();
-    }, [selectedFilter]),
-  );
-
-  const onSelectFilter = (filter: string) => {
-    setSelectedFilter(filter);
+  // Load the list for a given filter tab (shared by focus, tab change, retry,
+  // and pull-to-refresh).
+  const loadForFilter = useCallback((filter: string) => {
     const load = useOrdersStore.getState().loadOrders;
     if (filter === 'Delivered') load('delivered');
     else if (filter === 'Cancelled') load('cancelled');
     else load(); // 'All Orders' & 'In Progress' both load all, the latter filters client-side
+  }, []);
+
+  // Reload on every focus so a freshly placed order (and any status changes)
+  // are reflected, not just on the first mount.
+  useFocusEffect(
+    useCallback(() => {
+      loadForFilter(selectedFilter);
+    }, [selectedFilter, loadForFilter]),
+  );
+
+  const onSelectFilter = (filter: string) => {
+    setSelectedFilter(filter);
+    loadForFilter(filter);
   };
 
   // The "In Progress" tab is filtered client-side across multiple statuses.
@@ -217,20 +222,54 @@ export default function OrderHistoryScreen() {
           <View style={styles.centerFill}>
             <ActivityIndicator color={AppColors.primaryColor} />
           </View>
-        ) : visibleOrders.length === 0 ? (
+        ) : loadError && orders.length === 0 ? (
+          // A failed fetch must not look like "you have no orders" — show a
+          // distinct error with a retry.
           <View style={styles.centerFill}>
+            <BaseText
+              title={t('couldnt_load')}
+              size={sp(14)}
+              color={AppColors.red}
+              textAlign="center"
+            />
+            <Pressable
+              onPress={() => loadForFilter(selectedFilter)}
+              style={styles.retryBtn}
+              hitSlop={8}
+            >
+              <BaseText title={t('retry')} size={sp(14)} fontWeight="600" color={AppColors.white} />
+            </Pressable>
+          </View>
+        ) : visibleOrders.length === 0 ? (
+          <ScrollView
+            contentContainerStyle={[styles.centerFill, { flexGrow: 1 }]}
+            refreshControl={
+              <RefreshControl
+                refreshing={isLoading}
+                onRefresh={() => loadForFilter(selectedFilter)}
+                tintColor={AppColors.primaryColor}
+              />
+            }
+          >
             <BaseText
               title={t('no_orders')}
               size={sp(14)}
               color={AppColors.textColor2}
               textAlign="center"
             />
-          </View>
+          </ScrollView>
         ) : (
           <FlatList
             style={{ flex: 1 }}
             contentContainerStyle={styles.listContent}
             data={visibleOrders}
+            refreshControl={
+              <RefreshControl
+                refreshing={isLoading}
+                onRefresh={() => loadForFilter(selectedFilter)}
+                tintColor={AppColors.primaryColor}
+              />
+            }
             keyExtractor={(order) => order.order_id}
             renderItem={({ item: order }: { item: Order }) => {
               const isDelivered = order.status === 'delivered';
@@ -378,6 +417,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: w(16),
+  },
+  retryBtn: {
+    marginTop: h(16),
+    paddingHorizontal: w(24),
+    paddingVertical: h(10),
+    borderRadius: r(10),
+    backgroundColor: AppColors.primaryColor,
   },
   listContent: {
     padding: w(16),

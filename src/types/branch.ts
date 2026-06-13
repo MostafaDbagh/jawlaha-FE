@@ -25,6 +25,11 @@ export interface BranchModel {
   rating?: number;
   reviewsCount?: number;
   isOpen?: boolean;
+  // Keeta-style self-service "busy / pause orders" toggle the restaurant flips
+  // from the web portal. When false the branch stays listed but the menu is
+  // shown disabled and checkout is blocked. Legacy branches without the field
+  // (undefined) are treated as accepting (=== false check everywhere).
+  isAcceptingOrders?: boolean;
   vendorName?: string;
   // Restaurant category keys set by the owner (up to 3). Resolved to labels for
   // the card's "cuisine" line via lib/cuisines.
@@ -60,6 +65,7 @@ export function parseBranchModel(json: any): BranchModel {
     rating: json?.rating != null ? Number(json.rating) : undefined,
     reviewsCount: json?.total_reviews != null ? Number(json.total_reviews) : undefined,
     isOpen: json?.is_open,
+    isAcceptingOrders: json?.is_accepting_orders,
     vendorName: json?.vendor?.name,
     cuisines: Array.isArray(json?.vendor?.cuisines) ? json.vendor.cuisines : undefined,
     distanceKm: json?.distance != null ? Number(json.distance) : undefined,

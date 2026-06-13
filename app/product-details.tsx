@@ -30,6 +30,7 @@ import { useNavArgs } from '@/store/navArgs';
 import { formatPrice } from '@/lib/currency';
 import { showSnack } from '@/lib/snack';
 import { ProductModel, ProductVariation, ProductOptionGroup } from '@/types/product';
+import { BranchModel } from '@/types/branch';
 
 export default function ProductDetailsScreen() {
   const router = useRouter();
@@ -66,6 +67,16 @@ export default function ProductDetailsScreen() {
   // Product comes via navArgs; if only an id is present, fetch it.
   const argProduct = args.product as ProductModel | undefined;
   const product: ProductModel | undefined = argProduct ?? currentProduct ?? undefined;
+
+  // The restaurant this product belongs to (passed from vendor-details / cart).
+  // When it's "busy" (paused orders) or "closed" (off-schedule) we block
+  // add-to-cart as a safety net — the menu screen already blocks navigation,
+  // and the backend rejects checkout.
+  const argBranch = args.branch as BranchModel | undefined;
+  const isBusy = argBranch?.isAcceptingOrders === false;
+  const isClosed = argBranch?.isOpen === false;
+  const cannotOrder = isBusy || isClosed;
+  const blockedMsgKey = isBusy ? 'restaurant_busy_no_orders' : 'restaurant_closed_no_orders';
 
   useEffect(() => {
     if (!argProduct && args.productId != null) {
@@ -347,6 +358,11 @@ export default function ProductDetailsScreen() {
     originalPrice > product.finalPrice;
 
   const onAddToCart = async () => {
+    // Restaurant is busy (paused orders) or closed (off-schedule): block adds.
+    if (cannotOrder) {
+      showSnack(t(blockedMsgKey), 'info');
+      return;
+    }
     // Cart is server-side and per-user, so a guest must sign in first.
     if (!useAuthStore.getState().isLoggedIn) {
       showSnack(t('login_required_to_order'), 'info');
@@ -543,7 +559,7 @@ export default function ProductDetailsScreen() {
               <TouchableOpacity
                 activeOpacity={0.85}
                 onPress={onAddToCart}
-                style={styles.addToCartBtn}
+                style={[styles.addToCartBtn, cannotOrder && styles.addToCartBtnDisabled]}
               >
                 <BaseTextRaw
                   text={t('add_to_cart')}
@@ -899,6 +915,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: w(20),
+  },
+  addToCartBtnDisabled: {
+    backgroundColor: AppColors.textColor2,
   },
   bottomBar: {
     position: 'absolute',

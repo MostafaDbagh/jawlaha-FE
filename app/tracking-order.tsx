@@ -107,6 +107,7 @@ export default function TrackingOrderScreen() {
 
   const order = useOrdersStore((s) => s.currentOrder);
   const isLoading = useOrdersStore((s) => s.isLoading);
+  const loadError = useOrdersStore((s) => s.loadError);
 
   useEffect(() => {
     if (!orderId) return;
@@ -114,6 +115,13 @@ export default function TrackingOrderScreen() {
     // pushed by the restaurant/driver appear without reopening the screen.
     useOrdersStore.getState().loadOrder(orderId);
     const timer = setInterval(() => {
+      // Stop polling once the order reaches a terminal state — there's nothing
+      // left to update, and polling a cancelled order forever is wasteful.
+      const cur = useOrdersStore.getState().currentOrder;
+      if (cur && (cur.status === 'delivered' || cur.status === 'cancelled')) {
+        clearInterval(timer);
+        return;
+      }
       useOrdersStore.getState().refreshOrder(orderId);
     }, POLL_MS);
     return () => clearInterval(timer);
@@ -124,6 +132,9 @@ export default function TrackingOrderScreen() {
   const atByStatus = new Map(
     (order?.status_timeline ?? []).map((s) => [s.status, s.at] as const),
   );
+  // Cancelled orders fall outside the linear flow — handled with a dedicated
+  // banner instead of the (otherwise all-grey, misleading) timeline.
+  const isCancelled = order?.status === 'cancelled';
   const currentIdx = ORDER_FLOW.indexOf(order?.status ?? 'pending');
   const timeline = TIMELINE_STEPS.map((s, i) => ({
     title: t(s.labelKey),
@@ -211,6 +222,24 @@ export default function TrackingOrderScreen() {
             <View style={styles.centerFill}>
               <ActivityIndicator color={AppColors.primaryColor} />
             </View>
+          ) : loadError && !order ? (
+            <View style={styles.centerFill}>
+              <BaseText
+                title={t('couldnt_load')}
+                size={sp(14)}
+                color={AppColors.red}
+                style={{ textAlign: 'center' }}
+              />
+              {!!orderId && (
+                <Pressable
+                  onPress={() => useOrdersStore.getState().loadOrder(orderId)}
+                  style={styles.retryBtn}
+                  hitSlop={8}
+                >
+                  <BaseText title={t('retry')} size={sp(14)} fontWeight="600" color={AppColors.white} />
+                </Pressable>
+              )}
+            </View>
           ) : (
             <ScrollView contentContainerStyle={{ padding: w(16) }}>
               {/* Grabber */}
@@ -226,6 +255,34 @@ export default function TrackingOrderScreen() {
               </View>
               <View style={{ height: h(16) }} />
 
+              {isCancelled ? (
+                /* Cancelled: clear red banner + the merchant's reason, instead
+                   of an empty timeline and an endless "finding driver" note. */
+                <View style={styles.cancelledCard}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <MaterialIcons
+                      name="cancel"
+                      size={sp(22)}
+                      color={AppColors.red}
+                    />
+                    <View style={{ width: w(8) }} />
+                    <BaseText
+                      title={t('order_cancelled')}
+                      style={{
+                        fontSize: sp(16),
+                        fontFamily: quicksand('bold'),
+                        color: AppColors.red,
+                      }}
+                    />
+                  </View>
+                  <View style={{ height: h(8) }} />
+                  <BaseText
+                    title={order?.cancel_reason || t('order_cancelled_desc')}
+                    style={{ fontSize: sp(13), color: AppColors.textColor, lineHeight: sp(20) }}
+                  />
+                </View>
+              ) : (
+              <>
               {/* Time Estimate */}
               {eta != null && (
                 <>
@@ -372,6 +429,8 @@ export default function TrackingOrderScreen() {
                   />
                 </View>
               )}
+              </>
+              )}
 
               <View style={{ height: h(24) }} />
               <BaseText
@@ -498,6 +557,14 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: w(24),
+  },
+  retryBtn: {
+    marginTop: h(16),
+    paddingHorizontal: w(24),
+    paddingVertical: h(10),
+    borderRadius: r(10),
+    backgroundColor: AppColors.primaryColor,
   },
   homeButton: {
     flexDirection: 'row',
@@ -554,6 +621,14 @@ const styles = StyleSheet.create({
     minHeight: h(36),
     backgroundColor: AppColors.primaryColor,
     borderRadius: r(20),
+  },
+  cancelledCard: {
+    padding: w(14),
+    borderWidth: 1,
+    borderColor: `${AppColors.red}40`,
+    borderRadius: r(12),
+    backgroundColor: `${AppColors.red}10`,
+    marginBottom: h(8),
   },
   driverPlaceholder: {
     flexDirection: 'row',

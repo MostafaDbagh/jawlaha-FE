@@ -12,6 +12,9 @@ export interface MenuListItemCardProps {
   imageUrl: string;
   onAdd?: () => void;
   onPress?: () => void;
+  // When the restaurant is "busy" (not accepting orders) the row is dimmed and
+  // the add button is greyed out. Taps still fire so the caller can explain why.
+  disabled?: boolean;
 }
 
 function MenuListItemCardBase({
@@ -21,10 +24,11 @@ function MenuListItemCardBase({
   imageUrl,
   onAdd,
   onPress,
+  disabled = false,
 }: MenuListItemCardProps) {
   return (
     <Pressable onPress={onPress}>
-      <View style={styles.container}>
+      <View style={[styles.container, disabled && styles.containerDisabled]}>
         <View style={styles.row}>
           {imageUrl ? (
             <AppImage
@@ -63,7 +67,10 @@ function MenuListItemCardBase({
                 fontWeight="bold"
                 color={AppColors.textColorTheme}
               />
-              <Pressable onPress={onAdd} style={styles.addButton}>
+              <Pressable
+                onPress={onAdd}
+                style={[styles.addButton, disabled && styles.addButtonDisabled]}
+              >
                 <MaterialIcons name="add" color="#FFFFFF" size={sp(20)} />
               </Pressable>
             </View>
@@ -90,6 +97,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
+  },
+  containerDisabled: {
+    opacity: 0.5,
   },
   row: {
     flexDirection: 'row',
@@ -121,6 +131,9 @@ const styles = StyleSheet.create({
     padding: w(6),
     backgroundColor: AppColors.primaryColor,
     borderRadius: r(8),
+  },
+  addButtonDisabled: {
+    backgroundColor: AppColors.textColor2,
   },
 });
 

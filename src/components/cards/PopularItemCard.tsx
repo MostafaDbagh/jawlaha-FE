@@ -12,6 +12,9 @@ interface PopularItemCardProps {
   price: string;
   imageUrl: string;
   onAdd?: () => void;
+  // Dimmed + greyed add button when the restaurant is "busy" (not accepting
+  // orders). Taps still fire so the caller can explain why.
+  disabled?: boolean;
 }
 
 function PopularItemCardBase({
@@ -20,9 +23,10 @@ function PopularItemCardBase({
   price,
   imageUrl,
   onAdd,
+  disabled = false,
 }: PopularItemCardProps) {
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, disabled && styles.containerDisabled]}>
       {/* ClipRRect top rounded image */}
       <View style={styles.imageClip}>
         <AppImage
@@ -44,7 +48,7 @@ function PopularItemCardBase({
         <View style={styles.priceRow}>
           <BaseText title={price} style={styles.price} />
           <Pressable onPress={onAdd}>
-            <View style={styles.addButton}>
+            <View style={[styles.addButton, disabled && styles.addButtonDisabled]}>
               <MaterialIcons name="add" color={AppColors.white} size={sp(16)} />
             </View>
           </Pressable>
@@ -70,6 +74,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
+  },
+  containerDisabled: {
+    opacity: 0.5,
   },
   imageClip: {
     borderTopLeftRadius: r(12),
@@ -110,5 +117,8 @@ const styles = StyleSheet.create({
     padding: w(4),
     backgroundColor: AppColors.primaryColor,
     borderRadius: 999,
+  },
+  addButtonDisabled: {
+    backgroundColor: AppColors.textColor2,
   },
 });

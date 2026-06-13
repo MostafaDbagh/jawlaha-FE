@@ -1,6 +1,6 @@
 // Generic loading/error/empty wrapper — replaces StateBodyWidget pattern + states.
 import React from 'react';
-import { View, ActivityIndicator, RefreshControl, ScrollView, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { AppColors, sp } from '@/theme';
 import { t } from '@/i18n';
 import { BaseText } from './BaseText';
@@ -37,6 +37,11 @@ export function StateBody({
     body = (
       <View style={styles.center}>
         <BaseText title={error} color={AppColors.red} size={sp(14)} textAlign="center" />
+        {onRefresh && (
+          <Pressable onPress={onRefresh} style={styles.retryBtn} hitSlop={8}>
+            <BaseText title={t('retry')} color={AppColors.white} size={sp(14)} fontWeight="600" />
+          </Pressable>
+        )}
       </View>
     );
   } else if (empty) {
@@ -73,6 +78,13 @@ export function StateBody({
 
 const styles = StyleSheet.create({
   center: { flex: 1, minHeight: 200, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  retryBtn: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: AppColors.primaryColor,
+  },
 });
 
 export default StateBody;

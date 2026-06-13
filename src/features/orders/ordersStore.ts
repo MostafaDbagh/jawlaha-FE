@@ -33,6 +33,8 @@ export interface Order {
   currency: string;
   payment_method: string;
   status: string;
+  // Merchant-supplied reason when the order was cancelled/rejected, else null.
+  cancel_reason?: string | null;
   delivery_address?: string | null;
   delivery_lat?: number | null;
   delivery_lng?: number | null;
@@ -50,6 +52,9 @@ interface OrdersState {
   totalOrders: number;
   currentOrder: Order | null;
   isLoading: boolean;
+  // True when the last load failed (network/server). Lets screens show a
+  // distinct "couldn't load — retry" state instead of a misleading "no orders".
+  loadError: boolean;
   loadOrders: (status?: string) => Promise<void>;
   loadOrder: (id: string) => Promise<void>;
   refreshOrder: (id: string) => Promise<void>;
@@ -68,17 +73,20 @@ export const useOrdersStore = create<OrdersState>((set) => ({
   totalOrders: 0,
   currentOrder: null,
   isLoading: false,
+  loadError: false,
 
   async loadOrders(status) {
     try {
-      set({ isLoading: true });
+      set({ isLoading: true, loadError: false });
       const res = await ordersRepo.getOrders(status);
       if (res.success && res.object) {
         const data = res.object as { orders: Order[]; stats?: { total_orders: number } };
         set({ orders: data.orders ?? [], totalOrders: data.stats?.total_orders ?? 0 });
+      } else {
+        set({ loadError: true });
       }
     } catch (e) {
-      // keep state
+      set({ loadError: true });
     } finally {
       set({ isLoading: false });
     }
@@ -86,11 +94,12 @@ export const useOrdersStore = create<OrdersState>((set) => ({
 
   async loadOrder(id) {
     try {
-      set({ isLoading: true, currentOrder: null });
+      set({ isLoading: true, currentOrder: null, loadError: false });
       const res = await ordersRepo.getOrder(id);
       if (res.success) set({ currentOrder: res.object as Order });
+      else set({ loadError: true });
     } catch (e) {
-      // keep state
+      set({ loadError: true });
     } finally {
       set({ isLoading: false });
     }

@@ -89,6 +89,18 @@ export default function VendorDetailsScreen() {
       : undefined) ??
     (argVendor ? vendorBranches[0] : undefined);
 
+  // "Busy" = the restaurant flipped its self-service toggle off from the web
+  // portal. The branch stays listed but the whole menu is shown disabled and
+  // adding to the cart / ordering is blocked here (the backend rejects checkout
+  // too). Legacy branches without the field (undefined) are treated as open.
+  const isBusy = branch?.isAcceptingOrders === false;
+  // "Closed" = outside the restaurant's working hours. Explicit `=== false`
+  // only, so a missing/legacy is_open never over-blocks. Either state stops
+  // ordering; busy takes priority for the message.
+  const isClosed = branch?.isOpen === false;
+  const cannotOrder = isBusy || isClosed;
+  const blockedMsgKey = isBusy ? 'restaurant_busy_no_orders' : 'restaurant_closed_no_orders';
+
   // Heart state from the per-user favorites store (server-backed), keyed by
   // the branch — favoriting a restaurant means this location.
   const favoriteKeys = useFavoritesStore((s) => s.keys);
@@ -177,6 +189,12 @@ export default function VendorDetailsScreen() {
   };
 
   const openProduct = (product: ProductModel) => {
+    // Busy or closed restaurant: don't let the customer open a product / add to
+    // cart, and say why.
+    if (cannotOrder) {
+      showSnack(t(blockedMsgKey), 'info');
+      return;
+    }
     navArgs.set({ product, branch });
     router.push('/product-details');
   };
@@ -254,6 +272,7 @@ export default function VendorDetailsScreen() {
                 imageUrl={item.imageUrl ?? ''}
                 onAdd={() => openProduct(item)}
                 onPress={() => openProduct(item)}
+                disabled={cannotOrder}
               />
             </View>
           )}
@@ -381,25 +400,32 @@ export default function VendorDetailsScreen() {
                   </>
                 )}
                 <View style={{ height: h(6) }} />
-                {/* Open / Closed with a coloured status dot (green = open). */}
+                {/* Status with a coloured dot. Busy (restaurant paused orders)
+                    takes priority over the open/closed schedule. */}
                 <View style={styles.infoRow}>
                   <View
                     style={[
                       styles.statusDot,
                       {
-                        backgroundColor: isOpen
-                          ? AppColors.green
-                          : AppColors.textColor2,
+                        backgroundColor: isBusy
+                          ? AppColors.orange
+                          : isOpen
+                            ? AppColors.green
+                            : AppColors.textColor2,
                       },
                     ]}
                   />
                   <View style={{ width: w(6) }} />
                   <BaseText
-                    title={isOpen ? t('open_now') : t('closed')}
+                    title={isBusy ? t('restaurant_busy') : isOpen ? t('open_now') : t('closed')}
                     style={{
                       fontSize: sp(13),
                       fontFamily: quicksand('bold'),
-                      color: isOpen ? AppColors.green : AppColors.textColor2,
+                      color: isBusy
+                        ? AppColors.orange
+                        : isOpen
+                          ? AppColors.green
+                          : AppColors.textColor2,
                     }}
                   />
                 </View>
@@ -424,6 +450,37 @@ export default function VendorDetailsScreen() {
               )}
             </View>
             <View style={{ height: h(20) }} />
+
+            {/* Busy/closed banner — the restaurant isn't taking orders. The whole
+                menu is shown disabled below and checkout is blocked. */}
+            {cannotOrder && (
+              <>
+                <View style={styles.busyBanner}>
+                  <MaterialIcons
+                    name={isBusy ? 'pause-circle-filled' : 'schedule'}
+                    size={sp(20)}
+                    color={AppColors.orange}
+                  />
+                  <View style={{ width: w(8) }} />
+                  <View style={{ flex: 1 }}>
+                    <BaseText
+                      title={isBusy ? t('restaurant_busy') : t('closed')}
+                      style={{
+                        fontSize: sp(14),
+                        fontFamily: quicksand('bold'),
+                        color: AppColors.orange,
+                      }}
+                    />
+                    <View style={{ height: h(2) }} />
+                    <BaseText
+                      title={t(blockedMsgKey)}
+                      style={{ fontSize: sp(12), color: AppColors.textColor }}
+                    />
+                  </View>
+                </View>
+                <View style={{ height: h(20) }} />
+              </>
+            )}
 
             {/* Promotions — the restaurant's own banners (hidden when none) */}
             {promotions.length > 0 && (
@@ -562,6 +619,7 @@ export default function VendorDetailsScreen() {
                     price={formatPrice(product.finalPrice ?? product.price)}
                     imageUrl={product.imageUrl ?? ''}
                     onAdd={() => openProduct(product)}
+                    disabled={cannotOrder}
                   />
                 ))}
               </View>
@@ -705,6 +763,15 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingHorizontal: w(6),
+  },
+  busyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: AppColors.lightOrange,
+    borderRadius: r(16),
+    padding: w(12),
+    backgroundColor: `${AppColors.orange}14`,
   },
   statDivider: {
     width: 1,

@@ -70,6 +70,13 @@ export const LocalKeys = {
   reset_in_reset_password: "reset_in_reset_password",
   reset_password_desc: "reset_password_desc",
   sar: "sar",
+  restaurant_busy: "restaurant_busy",
+  restaurant_busy_no_orders: "restaurant_busy_no_orders",
+  restaurant_closed_no_orders: "restaurant_closed_no_orders",
+  order_cancelled: "order_cancelled",
+  order_cancelled_desc: "order_cancelled_desc",
+  retry: "retry",
+  couldnt_load: "couldnt_load",
 } as const;
 
 export type LocalKey = keyof typeof LocalKeys;

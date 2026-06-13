@@ -253,6 +253,7 @@ export default function OrderDetailsScreen() {
 
   const order = useOrdersStore((s) => s.currentOrder);
   const isLoading = useOrdersStore((s) => s.isLoading);
+  const loadError = useOrdersStore((s) => s.loadError);
 
   useEffect(() => {
     if (orderId) useOrdersStore.getState().loadOrder(orderId);
@@ -291,11 +292,20 @@ export default function OrderDetailsScreen() {
       ) : !order ? (
         <View style={styles.centerFill}>
           <BaseText
-            title={t('no_orders')}
+            title={loadError ? t('couldnt_load') : t('no_orders')}
             size={sp(14)}
-            color={AppColors.textColor2}
+            color={loadError ? AppColors.red : AppColors.textColor2}
             textAlign="center"
           />
+          {loadError && !!orderId && (
+            <Pressable
+              onPress={() => useOrdersStore.getState().loadOrder(orderId)}
+              style={styles.retryBtn}
+              hitSlop={8}
+            >
+              <BaseText title={t('retry')} size={sp(14)} fontWeight="600" color={AppColors.white} />
+            </Pressable>
+          )}
         </View>
       ) : (
         <ScrollView
@@ -338,6 +348,19 @@ export default function OrderDetailsScreen() {
               size={sp(12)}
               color={AppColors.textColor2}
             />
+            {/* Why a cancelled order was rejected (merchant-supplied). */}
+            {order.status === 'cancelled' && (
+              <>
+                <View style={{ height: h(8) }} />
+                <View style={styles.cancelReasonBox}>
+                  <BaseText
+                    title={order.cancel_reason || t('order_cancelled_desc')}
+                    size={sp(13)}
+                    color={AppColors.red}
+                  />
+                </View>
+              </>
+            )}
             <View style={{ height: h(24) }} />
 
             {/* Stores & Items */}
@@ -655,6 +678,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: w(12),
     paddingVertical: h(5),
     borderRadius: r(20),
+  },
+  cancelReasonBox: {
+    alignSelf: 'stretch',
+    padding: w(12),
+    borderRadius: r(12),
+    borderWidth: 1,
+    borderColor: `${AppColors.red}40`,
+    backgroundColor: `${AppColors.red}10`,
+  },
+  retryBtn: {
+    marginTop: h(16),
+    paddingHorizontal: w(24),
+    paddingVertical: h(10),
+    borderRadius: r(10),
+    backgroundColor: AppColors.primaryColor,
   },
   sectionHeader: {
     flexDirection: 'row',
