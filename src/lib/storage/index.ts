@@ -65,6 +65,10 @@ const REFRESH_TOKEN_KEY = 'secure_refresh_token';
 // logs in once, these let the app transparently re-authenticate on every launch
 // — even after the access + refresh tokens expire — so it never asks again.
 const CREDENTIALS_KEY = 'secure_login_credentials';
+// "Has the user seen onboarding" — kept in the Keychain (NOT AsyncStorage) so it
+// survives app updates AND reinstalls; otherwise a wiped data container re-shows
+// onboarding on every new build.
+const ONBOARDED_KEY = 'secure_onboarded';
 
 export interface SavedCredentials {
   phone?: string;
@@ -135,8 +139,18 @@ export const prefs = {
   getToken: () => secureStorage.getToken(),
   setAppLanguage: (v: string) => storage.setString(StorageKeys.APP_LANGUAGE, v),
   getAppLanguage: () => storage.getString(StorageKeys.APP_LANGUAGE),
-  setIsFirstOpen: (v: boolean) => storage.setBool(StorageKeys.FIRST_OPEN, v),
-  getIsFirstOpen: () => storage.getBool(StorageKeys.FIRST_OPEN),
+  // Onboarding "seen" flag. Persist to the Keychain (survives reinstall/update)
+  // and mirror to AsyncStorage. Read the Keychain first, then fall back to the
+  // legacy AsyncStorage value so existing users aren't re-onboarded.
+  setIsFirstOpen: async (v: boolean) => {
+    await storage.setBool(StorageKeys.FIRST_OPEN, v);
+    if (v) await SecureStore.setItemAsync(ONBOARDED_KEY, 'true').catch(() => {});
+  },
+  getIsFirstOpen: async (): Promise<boolean> => {
+    const secure = await SecureStore.getItemAsync(ONBOARDED_KEY).catch(() => null);
+    if (secure === 'true') return true;
+    return storage.getBool(StorageKeys.FIRST_OPEN);
+  },
   getPaymentCardId: () => storage.getInt(StorageKeys.PAYMENT_CARD_ID),
   savedPaymentCardId: (id: number) => storage.setInt(StorageKeys.PAYMENT_CARD_ID, id),
   getAddressId: () => storage.getInt(StorageKeys.SAVED_ADDRESS_ID),
