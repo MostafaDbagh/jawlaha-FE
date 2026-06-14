@@ -6,7 +6,6 @@ import {
   Pressable,
   StyleSheet,
   FlatList,
-  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +14,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { goBack } from '@/lib/nav';
 import { AppColors, w, h, r, sp } from '@/theme';
 import { BaseText } from '@/components';
+import { OrderListSkeleton } from '@/components/Shimmer';
 import { t } from '@/i18n';
 import { formatPrice } from '@/lib/currency';
 import { navArgs } from '@/store/navArgs';
@@ -244,9 +244,7 @@ export default function OrderHistoryScreen() {
             </Pressable>
           </View>
         ) : isLoading && orders.length === 0 ? (
-          <View style={styles.centerFill}>
-            <ActivityIndicator color={AppColors.primaryColor} />
-          </View>
+          <OrderListSkeleton />
         ) : loadError && orders.length === 0 ? (
           // A failed fetch must not look like "you have no orders" — show a
           // distinct error with a retry.

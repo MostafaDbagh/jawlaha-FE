@@ -26,6 +26,7 @@ import {
   RestaurantRowCard,
 } from '@/components/cards';
 import type { RestaurantBadge } from '@/components/cards/RestaurantRowCard';
+import { RestaurantListSkeleton, CategoryRowSkeleton } from '@/components/Shimmer';
 import { cuisineLabels } from '@/lib/cuisines';
 import { navArgs } from '@/store/navArgs';
 import { useAuthStore } from '@/store/authStore';
@@ -209,6 +210,8 @@ export default function HomeScreen() {
         )}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        // While restaurants load, show shimmer rows instead of a blank list.
+        ListEmptyComponent={isNearbyBranchesLoading ? <RestaurantListSkeleton /> : null}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         contentContainerStyle={{
           paddingHorizontal: responsivePadding.paddingHorizontal,
@@ -287,6 +290,9 @@ export default function HomeScreen() {
             <SectionHeader title={t('categories')} />
             <View style={{ height: h(12) }} />
             <View style={{ height: h(96) }}>
+              {isCategoriesLoading && filteredCategories.length === 0 ? (
+                <CategoryRowSkeleton />
+              ) : (
               <FlatList
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -305,6 +311,7 @@ export default function HomeScreen() {
                   />
                 )}
               />
+              )}
             </View>
           </>
         )}
