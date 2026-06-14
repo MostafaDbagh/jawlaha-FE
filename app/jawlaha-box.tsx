@@ -451,20 +451,7 @@ export default function JawlahaBoxScreen() {
                 style={styles.input}
               />
               <View style={{ height: h(10) }} />
-              <Pressable style={styles.pinRow} onPress={() => openMapPicker(stop.id, stop.coords)}>
-                <MaterialIcons
-                  name={stop.coords ? 'check-circle' : 'add-location-alt'}
-                  size={sp(20)}
-                  color={stop.coords ? AppColors.green : AppColors.primaryColor}
-                />
-                <View style={{ width: w(8) }} />
-                <BaseText
-                  title={stop.coords ? t('box_pin_set') : t('box_pin_on_map')}
-                  size={sp(14)}
-                  fontWeight="500"
-                  color={stop.coords ? AppColors.green : AppColors.primaryColor}
-                />
-              </Pressable>
+              <ComingSoonPin label={t('box_pin_on_map')} />
               <View style={{ height: h(10) }} />
               <TextInput
                 value={stop.note}
@@ -506,23 +493,7 @@ export default function JawlahaBoxScreen() {
               style={styles.input}
             />
             <View style={{ height: h(10) }} />
-            <Pressable
-              style={styles.pinRow}
-              onPress={() => openMapPicker(DESTINATION_TARGET, destCoords)}
-            >
-              <MaterialIcons
-                name={destCoords ? 'check-circle' : 'add-location-alt'}
-                size={sp(20)}
-                color={destCoords ? AppColors.green : AppColors.primaryColor}
-              />
-              <View style={{ width: w(8) }} />
-              <BaseText
-                title={destCoords ? t('box_pin_set') : t('box_pin_destination')}
-                size={sp(14)}
-                fontWeight="500"
-                color={destCoords ? AppColors.green : AppColors.primaryColor}
-              />
-            </Pressable>
+            <ComingSoonPin label={t('box_pin_destination')} />
           </View>
 
           {/* ---- Budget ---- */}
@@ -692,6 +663,23 @@ function Stepper({ value, onDec, onInc }: { value: number; onDec: () => void; on
   );
 }
 
+// Map-pin entry shown DISABLED while the in-app map picker for Box is still
+// being built ("coming soon"). The customer enters a text address instead;
+// coords are optional server-side, so orders still go through without a pin.
+function ComingSoonPin({ label }: { label: string }) {
+  return (
+    <View style={[styles.pinRow, styles.pinRowDisabled]}>
+      <MaterialIcons name="schedule" size={sp(20)} color={AppColors.textColor2} />
+      <View style={{ width: w(8) }} />
+      <BaseText title={label} size={sp(14)} fontWeight="500" color={AppColors.textColor2} />
+      <View style={{ flex: 1 }} />
+      <View style={styles.comingSoonPill}>
+        <BaseText title={t('coming_soon')} size={sp(11)} fontWeight="600" color={AppColors.primaryColor} />
+      </View>
+    </View>
+  );
+}
+
 function FeeRow({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
   return (
     <View style={styles.feeRow}>
@@ -796,6 +784,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: AppColors.lightGreyV2,
     backgroundColor: AppColors.whiteApplication,
+  },
+  pinRowDisabled: {
+    opacity: 0.7,
+    borderStyle: 'dashed',
+  },
+  comingSoonPill: {
+    paddingHorizontal: w(8),
+    paddingVertical: h(3),
+    borderRadius: r(20),
+    backgroundColor: 'rgba(35,90,94,0.10)',
   },
   addRow: {
     flexDirection: 'row',

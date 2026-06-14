@@ -236,10 +236,13 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* Jawlaha Box — errand / personal-courier entry (hidden while searching) */}
+        {/* Jawlaha Services — non-restaurant services (currently the errand
+            "Box"); hidden while searching restaurants. */}
         {!isSearching && (
           <>
-            <View style={{ height: h(16) }} />
+            <View style={{ height: h(20) }} />
+            <SectionHeader title={t('jawlaha_services')} />
+            <View style={{ height: h(12) }} />
             <Pressable
               style={styles.boxCard}
               onPress={() => router.push(isLoggedIn ? '/jawlaha-box' : '/login')}
